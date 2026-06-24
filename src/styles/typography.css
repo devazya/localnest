@@ -1,0 +1,41 @@
+/* Typography Scale */
+.t-display-xl {
+  font-family: var(--font-display);
+  font-size: clamp(48px, 8vw, 88px);
+  font-weight: 700;
+  line-height: 1.0;
+  letter-spacing: -2.5px;
+}
+
+.t-display-lg {
+  font-family: var(--font-display);
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -1.5px;
+}
+
+.t-display-md {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3.5vw, 40px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.8px;
+}
+
+.t-heading {
+  font-family: var(--font-display);
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.t-body-lg { font-size: 17px; line-height: 1.65; color: var(--text-secondary); }
+.t-body    { font-size: 15px; line-height: 1.6;  color: var(--text-secondary); }
+.t-body-sm { font-size: 13px; line-height: 1.55; color: var(--text-muted); }
+.t-caption { font-size: 11px; line-height: 1.5;  color: var(--text-muted); letter-spacing: 0.2px; }
+
+.t-mono {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
+}
