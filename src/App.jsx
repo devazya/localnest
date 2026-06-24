@@ -3,9 +3,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import MainLayout from './layouts/MainLayout';
 import Home from './pages/Home';
 import './styles/globals.css';
+import { useEffect } from "react";
+import { testConnection } from "./services/supabase/testConnection.js";
 
 // Lazy page stubs — will be replaced as pages are built
 function Stub({ name, onNavigate }) {
+  
   return (
     <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>{name}</div>
@@ -33,6 +36,9 @@ const PAGE_COMPONENTS = {
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
+    useEffect(() => {
+    testConnection();
+  }, []);
 
   const navigate = (page) => {
     setCurrentPage(page);
