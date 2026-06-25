@@ -52,7 +52,7 @@ export default function Footer({ onNavigate }) {
 
         {/* Bottom bar */}
         <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:20, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
-          <div style={{ fontSize:12.5, color:'var(--text-muted)' }}>© © 2026 LocalNest · Built with ❤️ by Devazya</div>
+          <div style={{ fontSize:12.5, color:'var(--text-muted)' }}> © 2026 LocalNest · Built with ❤️ by Devazya</div>
           <div style={{ display:'flex', gap:20 }}>
             {['Privacy Policy','Terms of Use','Safety'].map(l => (
               <span key={l} style={{ fontSize:12.5, color:'var(--text-muted)', cursor:'pointer', transition:'color 0.2s' }}
