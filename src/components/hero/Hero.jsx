@@ -1,24 +1,38 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useRef } from 'react';
+import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
 import HeroBackground from './HeroBackground';
 import LocalityNetwork from './LocalityNetwork';
 import { LOCAL_PULSE } from '../../data/index';
+import {
+  heroContainer, heroLine, heroSubtle,
+  networkReveal, pulseBarReveal,
+} from '../../animations/heroVariants';
 import styles from './Hero.module.css';
 
 const STATS = [
-  { num: '186+', label: 'Active Residents' },
-  { num: '42',   label: 'PG Listings' },
-  { num: '31',   label: 'Posts Today' },
+  { num: '2,000+', label: 'Active Residents' },
+  { num: '42',     label: 'PG Listings' },
+  { num: '186',    label: 'Online Now' },
 ];
 
-const FADE_UP = (delay = 0) => ({
-  initial: { opacity: 0, y: 24 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1], delay },
-});
+const PULSE_ITEMS = [
+  { val: LOCAL_PULSE.newVacancies,   label: 'new vacancies' },
+  { val: LOCAL_PULSE.activeRides,    label: 'active rides' },
+  { val: LOCAL_PULSE.upcomingEvents, label: 'events this week' },
+  { val: LOCAL_PULSE.buySellPosts,   label: 'buy/sell posts' },
+  { val: LOCAL_PULSE.activeUsers,    label: 'online now' },
+];
 
 export default function Hero({ onNavigate }) {
   const [query, setQuery] = useState('');
+  const heroRef = useRef(null);
+
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ['start start', 'end start'],
+  });
+  const rawY      = useTransform(scrollYProgress, [0, 1], [0, 60]);
+  const parallaxY = useSpring(rawY, { stiffness: 80, damping: 20 });
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -26,30 +40,41 @@ export default function Hero({ onNavigate }) {
   };
 
   return (
-    <section className={styles.hero}>
+    <section className={styles.hero} ref={heroRef}>
       <HeroBackground />
 
       <div className={styles.inner}>
-        {/* Left: Copy */}
-        <div className={styles.copy}>
-          <motion.div className={styles.eyebrow} {...FADE_UP(0)}>
+        {/* ── Left: Copy ── */}
+        <motion.div
+          className={styles.copy}
+          variants={heroContainer}
+          initial="initial"
+          animate="animate"
+          style={{ y: parallaxY }}
+        >
+          <motion.div className={styles.eyebrow} variants={heroLine}>
             <span className={styles.eyebrowDot} />
-            Green Sector · Anekal, Bangalore
+            <span>Green Sector · Anekal, Bangalore</span>
+            <span className={styles.eyebrowPing} />
           </motion.div>
 
-          <motion.h1 className={styles.title} {...FADE_UP(0.1)}>
-            Your locality,<br />
-            <span className={styles.accent}>all in one place.</span>
+          <motion.h1 className={styles.title} variants={heroLine}>
+            <span className={styles.titleLine}>Your locality,</span>
+            <br />
+            <span className={styles.titleGradient}>all in one place.</span>
           </motion.h1>
 
-          <motion.p className={styles.subtitle} {...FADE_UP(0.2)}>
-            Find PGs, discover shops, share rides, and connect with
-            2,000+ residents in Green Sector — all on one premium platform.
+          <motion.p className={styles.subtitle} variants={heroSubtle}>
+            Find PGs, discover local shops, share rides, and connect
+            with your community — everything Green Sector, in one premium platform.
           </motion.p>
 
-          {/* Search */}
-          <motion.form className={styles.searchBar} onSubmit={handleSearch} {...FADE_UP(0.3)}>
-            <svg className={styles.searchIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <motion.form
+            className={styles.searchBar}
+            onSubmit={handleSearch}
+            variants={heroSubtle}
+          >
+            <svg className={styles.searchIcon} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
             <input
@@ -61,74 +86,123 @@ export default function Hero({ onNavigate }) {
             <button type="submit" className={styles.searchBtn}>Search</button>
           </motion.form>
 
-          {/* Quick links */}
-          <motion.div className={styles.quickLinks} {...FADE_UP(0.38)}>
-            {['PG Rooms', 'Gyms', 'Events', 'Rides'].map(label => (
-              <button
-                key={label}
+          <motion.div className={styles.quickLinks} variants={heroSubtle}>
+            {[
+              { label: 'PG Rooms', id: 'pgs' },
+              { label: 'Gyms',     id: 'gyms' },
+              { label: 'Events',   id: 'events' },
+              { label: 'Rides',    id: 'rideshare' },
+              { label: 'Buy/Sell', id: 'buysell' },
+            ].map(({ label, id }) => (
+              <motion.button
+                key={id}
                 className={styles.quickLink}
-                onClick={() => onNavigate(label.toLowerCase().replace(' ', ''))}
+                onClick={() => onNavigate(id)}
+                whileHover={{ scale: 1.04, borderColor: 'rgba(110,231,183,0.35)', color: '#6EE7B7' }}
+                whileTap={{ scale: 0.97 }}
               >
                 {label}
-              </button>
+              </motion.button>
             ))}
           </motion.div>
 
-          {/* Stats */}
-          <motion.div className={styles.stats} {...FADE_UP(0.45)}>
+          <motion.div className={styles.stats} variants={heroSubtle}>
             {STATS.map((s, i) => (
-              <div key={i} className={styles.stat}>
-                <span className={styles.statNum}>{s.num}</span>
-                <span className={styles.statLabel}>{s.label}</span>
+              <div key={i} className={styles.statGroup}>
+                <div className={styles.stat}>
+                  <span className={styles.statNum}>{s.num}</span>
+                  <span className={styles.statLabel}>{s.label}</span>
+                </div>
                 {i < STATS.length - 1 && <div className={styles.statDivider} />}
               </div>
             ))}
           </motion.div>
-        </div>
+        </motion.div>
 
-        {/* Right: Network visualization */}
+        {/* ── Right: Network card ── */}
         <motion.div
           className={styles.networkWrapper}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+          variants={networkReveal}
+          initial="initial"
+          animate="animate"
         >
           <div className={styles.networkCard}>
-            <div className={styles.networkLabel}>
-              <span className={styles.networkDot} />
-              Live Locality Network
+            <div className={styles.networkHeader}>
+              <div className={styles.networkTitle}>
+                <span className={styles.liveDot} />
+                Locality Network
+              </div>
+              <div className={styles.networkMeta}>
+                {LOCAL_PULSE.activeUsers} online
+              </div>
             </div>
-            <LocalityNetwork />
+
+            <div className={styles.networkViz}>
+              <LocalityNetwork />
+            </div>
+
             <div className={styles.networkFooter}>
-              <span>{LOCAL_PULSE.activeUsers} residents online</span>
-              <span className={styles.networkPulse}>
-                <span className={styles.pulseDot} />
-                {LOCAL_PULSE.newPostsToday} posts today
-              </span>
+              <div className={styles.footerStat}>
+                <span className={styles.footerNum}>{LOCAL_PULSE.newPostsToday}</span>
+                <span className={styles.footerLabel}>posts today</span>
+              </div>
+              <div className={styles.footerStat}>
+                <span className={styles.footerNum}>{LOCAL_PULSE.activeRides}</span>
+                <span className={styles.footerLabel}>active rides</span>
+              </div>
+              <div className={styles.footerStat}>
+                <span className={styles.footerNum}>{LOCAL_PULSE.upcomingEvents}</span>
+                <span className={styles.footerLabel}>events this wk</span>
+              </div>
             </div>
           </div>
+
+          {/* Floating accent cards */}
+          <motion.div
+            className={`${styles.floatCard} ${styles.floatCardTop}`}
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            <span className={styles.floatIcon}>🏠</span>
+            <div>
+              <div className={styles.floatTitle}>GreenNest PG</div>
+              <div className={styles.floatSub}>₹8,500 · Available now</div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            className={`${styles.floatCard} ${styles.floatCardBot}`}
+            animate={{ y: [0, 8, 0] }}
+            transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
+          >
+            <span className={styles.floatIcon}>🚗</span>
+            <div>
+              <div className={styles.floatTitle}>Ride to Cyber City</div>
+              <div className={styles.floatSub}>Leaving 8:30 AM · 2 seats left</div>
+            </div>
+          </motion.div>
         </motion.div>
       </div>
 
-      {/* Local Pulse bar */}
+      {/* ── Local Pulse ticker ── */}
       <motion.div
         className={styles.pulseBar}
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6, duration: 0.5 }}
+        variants={pulseBarReveal}
+        initial="initial"
+        animate="animate"
       >
-        <span className={styles.pulseDotLive} />
-        <span className={styles.pulseTitle}>Local Pulse</span>
-        <span className={styles.pulseSep}>·</span>
-        <span className={styles.pulseItem}><b>{LOCAL_PULSE.newVacancies}</b> new vacancies</span>
-        <span className={styles.pulseSep}>·</span>
-        <span className={styles.pulseItem}><b>{LOCAL_PULSE.activeRides}</b> active rides</span>
-        <span className={styles.pulseSep}>·</span>
-        <span className={styles.pulseItem}><b>{LOCAL_PULSE.upcomingEvents}</b> events this week</span>
-        <span className={styles.pulseSep}>·</span>
-        <span className={styles.pulseItem}><b>{LOCAL_PULSE.buySellPosts}</b> buy/sell listings</span>
-        <span className={styles.pulseSep}>·</span>
-        <span className={styles.pulseItem}><b>{LOCAL_PULSE.activeUsers}</b> online now</span>
+        <div className={styles.pulseLeft}>
+          <span className={styles.pulseDot} />
+          <span className={styles.pulseTitle}>Local Pulse</span>
+        </div>
+        <div className={styles.pulseItems}>
+          {PULSE_ITEMS.map((item, i) => (
+            <span key={i} className={styles.pulseItem}>
+              <b className={styles.pulseNum}>{item.val}</b> {item.label}
+              {i < PULSE_ITEMS.length - 1 && <span className={styles.pulseSep}>·</span>}
+            </span>
+          ))}
+        </div>
       </motion.div>
     </section>
   );

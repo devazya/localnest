@@ -9,7 +9,3 @@
   height: 100%;
   overflow: visible;
 }
-
-.edge {
-  transition: stroke 0.3s ease, stroke-width 0.3s ease;
-}

@@ -4,11 +4,12 @@ import { NAV_LINKS } from '../../data/index';
 import styles from './Navbar.module.css';
 
 export default function Navbar({ currentPage, onNavigate }) {
-  const [scrolled, setScrolled] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const scrolled = scrollY > 40;
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
+    const onScroll = () => setScrollY(window.scrollY);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
@@ -18,62 +19,97 @@ export default function Navbar({ currentPage, onNavigate }) {
     return () => { document.body.style.overflow = ''; };
   }, [mobileOpen]);
 
-  const handleNav = (id) => {
-    onNavigate(id);
-    setMobileOpen(false);
-  };
+  const handleNav = (id) => { onNavigate(id); setMobileOpen(false); };
 
   return (
     <>
-      <header className={`${styles.nav} ${scrolled ? styles.scrolled : ''}`}>
+      <motion.header
+        className={styles.nav}
+        animate={{
+          background: scrolled
+            ? 'rgba(15,17,21,0.88)'
+            : 'rgba(15,17,21,0.0)',
+          borderBottomColor: scrolled
+            ? 'rgba(110,231,183,0.09)'
+            : 'rgba(110,231,183,0.0)',
+          boxShadow: scrolled
+            ? '0 1px 48px rgba(0,0,0,0.5)'
+            : '0 0 0 rgba(0,0,0,0)',
+        }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      >
         <div className={styles.inner}>
           {/* Logo */}
-          <button className={styles.logo} onClick={() => handleNav('home')}>
-            <div className={styles.logoIcon}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <motion.button
+            className={styles.logo}
+            onClick={() => handleNav('home')}
+            whileHover={{ opacity: 0.82 }}
+            whileTap={{ scale: 0.97 }}
+          >
+            <motion.div
+              className={styles.logoIcon}
+              animate={{
+                boxShadow: scrolled
+                  ? '0 0 16px rgba(110,231,183,0.25)'
+                  : '0 0 28px rgba(110,231,183,0.4)',
+              }}
+              transition={{ duration: 0.4 }}
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <path d="M8 1L14 6V14H10V10H6V14H2V6L8 1Z" fill="#0F1115" />
               </svg>
-            </div>
+            </motion.div>
             <span>Local<span className={styles.logoAccent}>Nest</span></span>
-          </button>
+          </motion.button>
 
-          {/* Desktop nav links */}
+          {/* Desktop links */}
           <nav className={styles.links}>
-            {NAV_LINKS.map((link) => (
-              <button
-                key={link.id}
-                className={`${styles.link} ${currentPage === link.id ? styles.active : ''}`}
-                onClick={() => handleNav(link.id)}
-              >
-                {link.label}
-                {currentPage === link.id && (
-                  <motion.div
-                    className={styles.activeIndicator}
-                    layoutId="nav-indicator"
-                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                  />
-                )}
-              </button>
-            ))}
+            {NAV_LINKS.map((link) => {
+              const isActive = currentPage === link.id;
+              return (
+                <motion.button
+                  key={link.id}
+                  className={`${styles.link} ${isActive ? styles.active : ''}`}
+                  onClick={() => handleNav(link.id)}
+                  whileHover={{ color: '#F8FAFC' }}
+                  style={{ position: 'relative' }}
+                >
+                  {link.label}
+                  {isActive && (
+                    <motion.span
+                      className={styles.activeBar}
+                      layoutId="activeBar"
+                      transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                    />
+                  )}
+                </motion.button>
+              );
+            })}
           </nav>
 
           {/* Actions */}
           <div className={styles.actions}>
-            <button className={styles.iconBtn} title="Notifications" onClick={() => {}}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
-            </button>
-            <button className={styles.iconBtn} title="Profile" onClick={() => handleNav('profile')}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <motion.button
+              className={styles.iconBtn}
+              onClick={() => handleNav('profile')}
+              whileHover={{ scale: 1.08, backgroundColor: 'rgba(255,255,255,0.1)' }}
+              whileTap={{ scale: 0.94 }}
+              title="Profile"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </svg>
-            </button>
-            <button className={styles.postBtn} onClick={() => handleNav('post')}>
-              + Post
-            </button>
+            </motion.button>
+
+            <motion.button
+              className={styles.postBtn}
+              onClick={() => handleNav('post')}
+              whileHover={{ y: -2, boxShadow: '0 8px 28px rgba(110,231,183,0.5)' }}
+              whileTap={{ scale: 0.96 }}
+            >
+              <span className={styles.postBtnPlus}>+</span> Post
+            </motion.button>
 
             {/* Hamburger */}
             <button
@@ -81,43 +117,73 @@ export default function Navbar({ currentPage, onNavigate }) {
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-label="Toggle menu"
             >
-              <span className={`${styles.bar} ${mobileOpen ? styles.barTop : ''}`} />
-              <span className={`${styles.bar} ${mobileOpen ? styles.barMid : ''}`} />
-              <span className={`${styles.bar} ${mobileOpen ? styles.barBot : ''}`} />
+              <motion.span
+                className={styles.bar}
+                animate={mobileOpen ? { rotate: 45, y: 7 } : { rotate: 0, y: 0 }}
+                transition={{ duration: 0.25 }}
+              />
+              <motion.span
+                className={styles.bar}
+                animate={mobileOpen ? { opacity: 0, scaleX: 0 } : { opacity: 1, scaleX: 1 }}
+                transition={{ duration: 0.2 }}
+              />
+              <motion.span
+                className={styles.bar}
+                animate={mobileOpen ? { rotate: -45, y: -7 } : { rotate: 0, y: 0 }}
+                transition={{ duration: 0.25 }}
+              />
             </button>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* Mobile drawer */}
       <AnimatePresence>
         {mobileOpen && (
-          <motion.div
-            className={styles.mobileDrawer}
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-          >
-            <div className={styles.mobileLinks}>
-              {NAV_LINKS.map((link, i) => (
-                <motion.button
-                  key={link.id}
-                  className={`${styles.mobileLink} ${currentPage === link.id ? styles.mobileLinkActive : ''}`}
-                  onClick={() => handleNav(link.id)}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                >
-                  {link.label}
-                </motion.button>
-              ))}
-              <div className={styles.mobileDivider} />
-              <button className={styles.mobilePostBtn} onClick={() => handleNav('post')}>
-                + Post Something
-              </button>
-            </div>
-          </motion.div>
+          <>
+            <motion.div
+              className={styles.mobileOverlay}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileOpen(false)}
+            />
+            <motion.div
+              className={styles.mobileDrawer}
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', stiffness: 340, damping: 34 }}
+            >
+              <div className={styles.mobileHeader}>
+                <div className={styles.mobileLogo}>
+                  Local<span style={{ color: 'var(--green)' }}>Nest</span>
+                </div>
+                <button className={styles.mobileClose} onClick={() => setMobileOpen(false)}>✕</button>
+              </div>
+              <div className={styles.mobileLinks}>
+                {NAV_LINKS.map((link, i) => (
+                  <motion.button
+                    key={link.id}
+                    className={`${styles.mobileLink} ${currentPage === link.id ? styles.mobileLinkActive : ''}`}
+                    onClick={() => handleNav(link.id)}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.045, ease: [0.22, 1, 0.36, 1] }}
+                    whileHover={{ x: 6 }}
+                  >
+                    {link.label}
+                    {currentPage === link.id && <span className={styles.mobileActiveDot} />}
+                  </motion.button>
+                ))}
+              </div>
+              <div className={styles.mobileFoot}>
+                <button className={styles.mobilePostBtn} onClick={() => handleNav('post')}>
+                  + Post Something
+                </button>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </>
