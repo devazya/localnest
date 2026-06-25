@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import Navbar from '../components/navigation/Navbar';
 import Footer from '../components/footer/Footer';
 
-export default function MainLayout({ children, currentPage, onNavigate }) {
+export default function MainLayout({ children, currentPage, onNavigate, onAuthOpen }) {
   const pageRef = useRef(null);
 
   const handleNavigate = (page) => {
@@ -12,14 +12,14 @@ export default function MainLayout({ children, currentPage, onNavigate }) {
 
   return (
     <div
-  style={{
-    minHeight: '100vh',
-    background: 'transparent',
-    position: 'relative'
-  }}
-  ref={pageRef}
->
-      <Navbar currentPage={currentPage} onNavigate={handleNavigate} />
+      style={{ minHeight: '100vh', background: 'transparent', position: 'relative' }}
+      ref={pageRef}
+    >
+      <Navbar
+        currentPage={currentPage}
+        onNavigate={handleNavigate}
+        onAuthOpen={onAuthOpen}
+      />
       <main style={{ paddingTop: '64px', minHeight: '100vh' }}>
         {children}
       </main>

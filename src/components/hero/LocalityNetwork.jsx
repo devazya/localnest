@@ -153,7 +153,8 @@ export default function LocalityNetwork({ onNavigate }) {
 
         {/* ── Nodes ── */}
         {NODES.map((node, i) => {
-          const n     = nodeMap[node.id];
+          const n = nodeMap[node.id];
+         if (!n) return null;
           const isCtr = node.center;
           const isHov = hovered === node.id;
           const isAct = highlight === node.id;
@@ -184,34 +185,36 @@ export default function LocalityNetwork({ onNavigate }) {
               }}
               whileHover={{ scale: 1.1 }}
             >
-              {/* Radial glow halo */}
-              <AnimatePresence>
-                {(isHov || isAct) && (
-                  <motion.circle
-                    cx={n.cx} cy={n.cy}
-                    r={r + 24}
-                    fill={`url(#rg-${node.id})`}
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.5 }}
-                    transition={{ duration: 0.3 }}
-                  />
-                )}
-              </AnimatePresence>
+             {/* Radial glow halo — was motion.circle inside AnimatePresence */}
+<AnimatePresence>
+  {(isHov || isAct) && (
+    <motion.g
+      initial={{ opacity: 0, scale: 0.5 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.5 }}
+      transition={{ duration: 0.3 }}
+      style={{ transformOrigin: `${n.cx}px ${n.cy}px` }}
+    >
+      <circle
+        cx={n.cx} cy={n.cy}
+        r={(r || 24) + 24}
+        fill={`url(#rg-${node.id})`}
+      />
+    </motion.g>
+  )}
+            </AnimatePresence>
 
-              {/* Pulse ring */}
-              {(isHov || isAct) && (
-                <motion.circle
-                  cx={n.cx} cy={n.cy}
-                  r={r + 8}
-                  fill="none"
-                  stroke={node.color}
-                  strokeWidth="1.5"
-                  opacity="0"
-                  animate={{ r: [r + 8, r + 22], opacity: [0.65, 0] }}
-                  transition={{ duration: 1.6, repeat: Infinity, ease: 'easeOut' }}
-                />
-              )}
+{/* Pulse ring — was motion.circle with animate r */}
+{(isHov || isAct) && (
+  <circle
+    cx={n.cx} cy={n.cy}
+    r={(r || 24) + 8}
+    fill="none"
+    stroke={node.color}
+    strokeWidth="1.5"
+    className={isCtr ? styles.pulseRingLg : styles.pulseRing}
+  />
+)}
 
               {/* Glass circle body */}
               <circle

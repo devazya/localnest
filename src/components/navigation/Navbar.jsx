@@ -2,8 +2,13 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NAV_LINKS } from '../../data/index';
 import styles from './Navbar.module.css';
+import { useAuth } from '../../context/AuthContext';
 
-export default function Navbar({ currentPage, onNavigate }) {
+export default function Navbar({
+  currentPage,
+  onNavigate,
+  onAuthOpen
+}) {
   const [scrollY, setScrollY] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const scrolled = scrollY > 40;
@@ -20,6 +25,7 @@ export default function Navbar({ currentPage, onNavigate }) {
   }, [mobileOpen]);
 
   const handleNav = (id) => { onNavigate(id); setMobileOpen(false); };
+  const { user, signOut } = useAuth();
 
   return (
     <>
@@ -80,21 +86,62 @@ export default function Navbar({ currentPage, onNavigate }) {
 
           {/* Actions */}
           <div className={styles.actions}>
-            <motion.button
-              className={styles.iconBtn}
-              onClick={() => handleNav('profile')}
-              whileTap={{ scale: 0.94 }}
-              title="Profile"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            </motion.button>
+           {user ? (
+  <motion.button
+    className={styles.iconBtn}
+    whileTap={{ scale: 0.94 }}
+    onClick={async () => {
+      const action = window.prompt(
+        "Type:\n\n1 = Profile\n2 = Logout"
+      );
+
+      if (action === "2") {
+        await signOut();
+      } else {
+        handleNav("profile");
+      }
+    }}
+    title={user.email}
+  >
+    <img
+      src={
+        user.user_metadata?.avatar_url ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(
+          user.email
+        )}&background=6D4AFF&color=fff`
+      }
+      alt="profile"
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: "50%"
+      }}
+    />
+  </motion.button>
+) : (
+  <motion.button
+    className={styles.iconBtn}
+    onClick={onAuthOpen}
+    whileTap={{ scale: 0.94 }}
+    title="Login"
+  >
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+      <circle cx="12" cy="7" r="4"/>
+    </svg>
+  </motion.button>
+)}
 
             <motion.button
               className={styles.postBtn}
-              onClick={() => handleNav('post')}
+              onClick={() => {
+  if (!user) {
+    onAuthOpen();
+    return;
+  }
+
+  handleNav("post");
+}}
               whileTap={{ scale: 0.96 }}
             >
               <span className={styles.postBtnPlus}>+</span> Post
@@ -167,7 +214,13 @@ export default function Navbar({ currentPage, onNavigate }) {
                 ))}
               </div>
               <div className={styles.mobileFoot}>
-                <button className={styles.mobilePostBtn} onClick={() => handleNav('post')}>
+                <button className={styles.mobilePostBtn} onClick={() => {
+                  if (!user) {
+                    onAuthOpen();
+                    return;
+                  }
+                  handleNav("post");
+                }}>
                   + Post Something
                 </button>
               </div>

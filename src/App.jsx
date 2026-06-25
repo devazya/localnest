@@ -12,6 +12,7 @@ import BuySell from './pages/BuySell';
 import Roommates from './pages/Roommates';
 import PgListings from './pages/PgListings';
 import PgDetails from './pages/PgDetails';
+import AuthModal from './components/auth/AuthModal';
 
 // Lazy page stubs — will be replaced as pages are built
 function Stub({ name, onNavigate }) {
@@ -33,17 +34,19 @@ const PAGE_COMPONENTS = {
 pgdetails: (nav) => <PgDetails onNavigate={nav} />,
   shops:     (nav) => <Stub name="Shops & Services" onNavigate={nav} />,
   gyms:      (nav) => <Stub name="Gyms & Fitness" onNavigate={nav} />,
- community: () => <Community />,
-rideshare: () => <RideShare />,
-events: () => <Events />,
-buysell: () => <BuySell />,
-roommates: () => <Roommates />,
+
+community: (nav) => <Community onNavigate={nav} />,
+rideshare: (nav) => <RideShare onNavigate={nav} />,
+events:    (nav) => <Events onNavigate={nav} />,
+buysell:   (nav) => <BuySell onNavigate={nav} />,
+roommates: (nav) => <Roommates onNavigate={nav} />,
   post:      (nav) => <Stub name="Post Something" onNavigate={nav} />,
   profile:   (nav) => <Stub name="Profile" onNavigate={nav} />,
 };
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
+  const [authOpen, setAuthOpen] = useState(false);
     useEffect(() => {
     testConnection();
   }, []);
@@ -56,7 +59,12 @@ export default function App() {
   const renderPage = PAGE_COMPONENTS[currentPage] ?? PAGE_COMPONENTS['home'];
 
   return (
-    <MainLayout currentPage={currentPage} onNavigate={navigate}>
+    
+    <MainLayout
+  currentPage={currentPage}
+  onNavigate={navigate}
+  onAuthOpen={() => setAuthOpen(true)}
+>
       <AnimatePresence mode="wait">
         <motion.div
           key={currentPage}
@@ -68,6 +76,10 @@ export default function App() {
           {renderPage(navigate)}
         </motion.div>
       </AnimatePresence>
+      <AuthModal
+  isOpen={authOpen}
+  onClose={() => setAuthOpen(false)}
+/>
     </MainLayout>
   );
 }

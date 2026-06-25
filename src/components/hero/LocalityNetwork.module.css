@@ -9,3 +9,17 @@
   height: 100%;
   overflow: visible;
 }
+@keyframes pulseRing {
+  0%   { r: 32px; opacity: 0.65; }
+  100% { r: 46px; opacity: 0; }
+}
+@keyframes pulseRingLg {
+  0%   { r: 46px; opacity: 0.65; }
+  100% { r: 60px; opacity: 0; }
+}
+.pulseRing {
+  animation: pulseRing 1.6s ease-out infinite;
+}
+.pulseRingLg {
+  animation: pulseRingLg 1.6s ease-out infinite;
+}
