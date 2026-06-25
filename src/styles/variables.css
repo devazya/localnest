@@ -1,51 +1,64 @@
 :root {
-  /* Colors */
-  --bg: #0F1115;
-  --surface: #171A21;
-  --card: #20242D;
-  --metal: #2A2F3A;
-  --border: rgba(110, 231, 183, 0.1);
-  --border-subtle: rgba(255, 255, 255, 0.07);
+  /* ── Core backgrounds ── */
+  --bg: #FAF7FF;
+  --surface: #F3EEFF;
+  --card: rgba(255, 255, 255, 0.72);
+  --card-solid: #FFFFFF;
+  --metal: rgba(109, 74, 255, 0.12);
+  --border: rgba(255, 255, 255, 0.55);
+  --border-subtle: rgba(109, 74, 255, 0.1);
 
-  --green: #6EE7B7;
-  --green-accent: #34D399;
-  --green-dim: rgba(110, 231, 183, 0.12);
-  --green-glow: rgba(110, 231, 183, 0.25);
+  /* ── Brand purples ── */
+  --primary: #6D4AFF;
+  --primary-light: #8F7BFF;
+  --primary-dim: rgba(109, 74, 255, 0.1);
+  --primary-glow: rgba(109, 74, 255, 0.22);
 
-  --blue: #60A5FA;
+  /* ── Legacy green aliases (kept so non-hero sections don't break) ── */
+  --green: #6D4AFF;
+  --green-accent: #8F7BFF;
+  --green-dim: rgba(109, 74, 255, 0.08);
+  --green-glow: rgba(109, 74, 255, 0.2);
+
+  /* ── Semantic colors ── */
+  --blue: #3B82F6;
   --amber: #F59E0B;
-  --purple: #A78BFA;
-  --red: #FB7185;
+  --purple: #8B5CF6;
+  --red: #EF4444;
+  --success: #10B981;
 
-  --text-primary: #F8FAFC;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
+  /* ── Typography ── */
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --text-muted: #9CA3AF;
 
-  /* Fonts */
+  /* ── Fonts ── */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: 'Space Grotesk', sans-serif;
 
-  /* Radius */
+  /* ── Radius ── */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+  --radius-2xl: 24px;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
-  --shadow-green: 0 0 24px rgba(110, 231, 183, 0.25);
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3);
+  /* ── Shadows (violet-tinted) ── */
+  --shadow-sm: 0 2px 8px rgba(109, 74, 255, 0.08);
+  --shadow-md: 0 8px 24px rgba(109, 74, 255, 0.12);
+  --shadow-lg: 0 20px 60px rgba(109, 74, 255, 0.14);
+  --shadow-xl: 0 32px 80px rgba(109, 74, 255, 0.18);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(109,74,255,0.1);
 
-  /* Transitions */
+  /* ── Transitions ── */
   --transition-fast: 0.15s ease;
   --transition-base: 0.25s ease;
   --transition-slow: 0.4s ease;
 
-  /* Blur */
+  /* ── Blur ── */
   --blur-sm: blur(8px);
   --blur-md: blur(16px);
   --blur-lg: blur(24px);
+  --blur-xl: blur(32px);
 }

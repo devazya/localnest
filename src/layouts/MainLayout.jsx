@@ -11,7 +11,14 @@ export default function MainLayout({ children, currentPage, onNavigate }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }} ref={pageRef}>
+    <div
+  style={{
+    minHeight: '100vh',
+    background: 'transparent',
+    position: 'relative'
+  }}
+  ref={pageRef}
+>
       <Navbar currentPage={currentPage} onNavigate={handleNavigate} />
       <main style={{ paddingTop: '64px', minHeight: '100vh' }}>
         {children}

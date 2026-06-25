@@ -27,13 +27,13 @@ export default function Navbar({ currentPage, onNavigate }) {
         className={styles.nav}
         animate={{
           background: scrolled
-            ? 'rgba(15,17,21,0.88)'
-            : 'rgba(15,17,21,0.0)',
+            ? 'rgba(255, 255, 255, 0.88)'
+            : 'rgba(250, 247, 255, 0.0)',
           borderBottomColor: scrolled
-            ? 'rgba(110,231,183,0.09)'
-            : 'rgba(110,231,183,0.0)',
+            ? 'rgba(109, 74, 255, 0.1)'
+            : 'rgba(109, 74, 255, 0.0)',
           boxShadow: scrolled
-            ? '0 1px 48px rgba(0,0,0,0.5)'
+            ? '0 1px 32px rgba(109, 74, 255, 0.1)'
             : '0 0 0 rgba(0,0,0,0)',
         }}
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
@@ -43,22 +43,14 @@ export default function Navbar({ currentPage, onNavigate }) {
           <motion.button
             className={styles.logo}
             onClick={() => handleNav('home')}
-            whileHover={{ opacity: 0.82 }}
+            whileHover={{ opacity: 0.85 }}
             whileTap={{ scale: 0.97 }}
           >
-            <motion.div
-              className={styles.logoIcon}
-              animate={{
-                boxShadow: scrolled
-                  ? '0 0 16px rgba(110,231,183,0.25)'
-                  : '0 0 28px rgba(110,231,183,0.4)',
-              }}
-              transition={{ duration: 0.4 }}
-            >
+            <div className={styles.logoIcon}>
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1L14 6V14H10V10H6V14H2V6L8 1Z" fill="#0F1115" />
+                <path d="M8 1L14 6V14H10V10H6V14H2V6L8 1Z" fill="#ffffff" />
               </svg>
-            </motion.div>
+            </div>
             <span>Local<span className={styles.logoAccent}>Nest</span></span>
           </motion.button>
 
@@ -71,7 +63,6 @@ export default function Navbar({ currentPage, onNavigate }) {
                   key={link.id}
                   className={`${styles.link} ${isActive ? styles.active : ''}`}
                   onClick={() => handleNav(link.id)}
-                  whileHover={{ color: '#F8FAFC' }}
                   style={{ position: 'relative' }}
                 >
                   {link.label}
@@ -92,7 +83,6 @@ export default function Navbar({ currentPage, onNavigate }) {
             <motion.button
               className={styles.iconBtn}
               onClick={() => handleNav('profile')}
-              whileHover={{ scale: 1.08, backgroundColor: 'rgba(255,255,255,0.1)' }}
               whileTap={{ scale: 0.94 }}
               title="Profile"
             >
@@ -105,7 +95,6 @@ export default function Navbar({ currentPage, onNavigate }) {
             <motion.button
               className={styles.postBtn}
               onClick={() => handleNav('post')}
-              whileHover={{ y: -2, boxShadow: '0 8px 28px rgba(110,231,183,0.5)' }}
               whileTap={{ scale: 0.96 }}
             >
               <span className={styles.postBtnPlus}>+</span> Post
@@ -157,7 +146,7 @@ export default function Navbar({ currentPage, onNavigate }) {
             >
               <div className={styles.mobileHeader}>
                 <div className={styles.mobileLogo}>
-                  Local<span style={{ color: 'var(--green)' }}>Nest</span>
+                  Local<span style={{ color: 'var(--primary)' }}>Nest</span>
                 </div>
                 <button className={styles.mobileClose} onClick={() => setMobileOpen(false)}>✕</button>
               </div>
@@ -170,7 +159,7 @@ export default function Navbar({ currentPage, onNavigate }) {
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.045, ease: [0.22, 1, 0.36, 1] }}
-                    whileHover={{ x: 6 }}
+                    whileHover={{ x: 4 }}
                   >
                     {link.label}
                     {currentPage === link.id && <span className={styles.mobileActiveDot} />}

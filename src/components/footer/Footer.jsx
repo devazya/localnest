@@ -6,8 +6,18 @@ export default function Footer({ onNavigate }) {
   ];
 
   return (
-    <footer style={{ background: 'var(--surface)', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '48px 24px 28px', marginTop: 'auto' }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+    <footer
+  style={{
+    background: 'rgba(255,255,255,0.35)',
+    backdropFilter: 'blur(24px)',
+    WebkitBackdropFilter: 'blur(24px)',
+    borderTop: '1px solid rgba(109,74,255,0.12)',
+    boxShadow: '0 -8px 32px rgba(109,74,255,0.08)',
+    padding: '48px 24px 28px',
+    marginTop: '80px',
+  }}
+>
+      <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 2 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 40, marginBottom: 40 }}>
           {/* Brand */}
           <div>
@@ -42,7 +52,7 @@ export default function Footer({ onNavigate }) {
 
         {/* Bottom bar */}
         <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:20, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
-          <div style={{ fontSize:12.5, color:'var(--text-muted)' }}>© 2025 LocalNest · Green Sector, Bangalore · Built with ♥ for the community</div>
+          <div style={{ fontSize:12.5, color:'var(--text-muted)' }}>© © 2026 LocalNest · Built with ❤️ by Devazya</div>
           <div style={{ display:'flex', gap:20 }}>
             {['Privacy Policy','Terms of Use','Safety'].map(l => (
               <span key={l} style={{ fontSize:12.5, color:'var(--text-muted)', cursor:'pointer', transition:'color 0.2s' }}

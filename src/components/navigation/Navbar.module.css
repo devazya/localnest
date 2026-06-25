@@ -38,15 +38,16 @@
 .logoIcon {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, #6EE7B7, #34D399);
+  background: var(--primary);
   border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(109, 74, 255, 0.35);
 }
 
-.logoAccent { color: var(--green); }
+.logoAccent { color: var(--primary); }
 
 /* ─── Desktop links ─── */
 .links {
@@ -72,15 +73,16 @@
   display: flex;
   align-items: center;
 }
+
 .link:hover { color: var(--text-primary); }
-.active { color: var(--text-primary) !important; font-weight: 600; }
+.active { color: var(--primary) !important; font-weight: 600; }
 
 .activeBar {
   position: absolute;
   inset: 0;
   border-radius: 8px;
-  background: rgba(110, 231, 183, 0.1);
-  border: 1px solid rgba(110, 231, 183, 0.18);
+  background: rgba(109, 74, 255, 0.08);
+  border: 1px solid rgba(109, 74, 255, 0.16);
   z-index: -1;
 }
 
@@ -94,24 +96,29 @@
 
 .iconBtn {
   width: 36px; height: 36px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(109, 74, 255, 0.12);
   border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: var(--text-secondary);
-  transition: color 0.2s;
+  transition: all 0.2s;
 }
-.iconBtn:hover { color: var(--text-primary); }
+
+.iconBtn:hover {
+  background: rgba(109, 74, 255, 0.08);
+  color: var(--primary);
+  border-color: rgba(109, 74, 255, 0.2);
+}
 
 .postBtn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: linear-gradient(135deg, #6EE7B7, #34D399);
-  color: #0F1115;
+  background: var(--primary);
+  color: #fff;
   border: none;
   padding: 8px 18px;
   border-radius: 9px;
@@ -119,7 +126,14 @@
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: box-shadow 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 4px 14px rgba(109, 74, 255, 0.3);
+}
+
+.postBtn:hover {
+  background: #5B38E8;
+  box-shadow: 0 6px 20px rgba(109, 74, 255, 0.45);
+  transform: translateY(-1px);
 }
 
 .postBtnPlus {
@@ -154,7 +168,7 @@
   position: fixed;
   inset: 0;
   z-index: 108;
-  background: rgba(0,0,0,0.5);
+  background: rgba(109, 74, 255, 0.08);
   backdrop-filter: blur(4px);
 }
 
@@ -164,12 +178,13 @@
   top: 0; right: 0; bottom: 0;
   z-index: 109;
   width: min(320px, 85vw);
-  background: rgba(23, 26, 33, 0.98);
-  border-left: 1px solid rgba(110, 231, 183, 0.1);
+  background: rgba(255, 255, 255, 0.96);
+  border-left: 1px solid rgba(109, 74, 255, 0.1);
   display: flex;
   flex-direction: column;
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
+  box-shadow: -8px 0 40px rgba(109, 74, 255, 0.12);
 }
 
 .mobileHeader {
@@ -177,7 +192,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(109, 74, 255, 0.08);
 }
 
 .mobileLogo {
@@ -188,8 +203,8 @@
 }
 
 .mobileClose {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(109, 74, 255, 0.06);
+  border: 1px solid rgba(109, 74, 255, 0.12);
   border-radius: 7px;
   width: 32px; height: 32px;
   display: flex;
@@ -225,41 +240,48 @@
   cursor: pointer;
   transition: all 0.2s ease;
 }
+
 .mobileLink:hover {
-  background: rgba(255,255,255,0.05);
+  background: rgba(109, 74, 255, 0.05);
   color: var(--text-primary);
 }
+
 .mobileLinkActive {
-  color: var(--green) !important;
-  background: rgba(110,231,183,0.08) !important;
-  border-color: rgba(110,231,183,0.14) !important;
+  color: var(--primary) !important;
+  background: rgba(109, 74, 255, 0.08) !important;
+  border-color: rgba(109, 74, 255, 0.14) !important;
   font-weight: 600;
 }
 
 .mobileActiveDot {
   width: 6px; height: 6px;
   border-radius: 50%;
-  background: var(--green);
+  background: var(--primary);
 }
 
 .mobileFoot {
   padding: 20px;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid rgba(109, 74, 255, 0.08);
 }
 
 .mobilePostBtn {
   width: 100%;
   padding: 13px;
-  background: linear-gradient(135deg, #6EE7B7, #34D399);
-  color: #0F1115;
+  background: var(--primary);
+  color: #fff;
   border: none;
   border-radius: 11px;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 4px 14px rgba(109, 74, 255, 0.3);
 }
-.mobilePostBtn:hover { opacity: 0.88; }
+
+.mobilePostBtn:hover {
+  background: #5B38E8;
+  transform: translateY(-1px);
+}
 
 /* ─── Responsive ─── */
 @media (max-width: 960px) {
