@@ -5,6 +5,13 @@ import Home from './pages/Home';
 import './styles/globals.css';
 import { useEffect } from "react";
 import { testConnection } from "./services/supabase/testConnection.js";
+import Community from './pages/Community';
+import RideShare from './pages/RideShare';
+import Events from './pages/Events';
+import BuySell from './pages/BuySell';
+import Roommates from './pages/Roommates';
+import PgListings from './pages/PgListings';
+import PgDetails from './pages/PgDetails';
 
 // Lazy page stubs — will be replaced as pages are built
 function Stub({ name, onNavigate }) {
@@ -22,14 +29,15 @@ function Stub({ name, onNavigate }) {
 
 const PAGE_COMPONENTS = {
   home:      (nav) => <Home onNavigate={nav} />,
-  pgs:       (nav) => <Stub name="PG Listings" onNavigate={nav} />,
+ pgs: (nav) => <PgListings onNavigate={nav} />,
+pgdetails: (nav) => <PgDetails onNavigate={nav} />,
   shops:     (nav) => <Stub name="Shops & Services" onNavigate={nav} />,
   gyms:      (nav) => <Stub name="Gyms & Fitness" onNavigate={nav} />,
-  community: (nav) => <Stub name="Community Feed" onNavigate={nav} />,
-  rideshare: (nav) => <Stub name="Ride Share" onNavigate={nav} />,
-  events:    (nav) => <Stub name="Events" onNavigate={nav} />,
-  buysell:   (nav) => <Stub name="Buy / Sell" onNavigate={nav} />,
-  roommates: (nav) => <Stub name="Roommate Finder" onNavigate={nav} />,
+ community: () => <Community />,
+rideshare: () => <RideShare />,
+events: () => <Events />,
+buysell: () => <BuySell />,
+roommates: () => <Roommates />,
   post:      (nav) => <Stub name="Post Something" onNavigate={nav} />,
   profile:   (nav) => <Stub name="Profile" onNavigate={nav} />,
 };
