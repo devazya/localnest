@@ -4,12 +4,24 @@ import { NAV_LINKS } from '../../data/index';
 import styles from './Navbar.module.css';
 import { useAuth } from '../../context/AuthContext';
 
+/**
+ * Navbar
+ *
+ * Props:
+ *   currentPage  {string}
+ *   onNavigate   {(id: string) => void}
+ *   onAuthOpen   {() => void}   — opens the Auth modal
+ *   onPostOpen   {() => void}   — opens the UniversalPost modal directly;
+ *                                 the parent already guards against unauthenticated
+ *                                 users, but the Navbar also checks just-in-case.
+ */
 export default function Navbar({
   currentPage,
   onNavigate,
-  onAuthOpen
+  onAuthOpen,
+  onPostOpen,
 }) {
-  const [scrollY, setScrollY] = useState(0);
+  const [scrollY, setScrollY]     = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const scrolled = scrollY > 40;
 
@@ -25,6 +37,17 @@ export default function Navbar({
   }, [mobileOpen]);
 
   const handleNav = (id) => { onNavigate(id); setMobileOpen(false); };
+
+  // ── Guard: if the parent didn't wire onPostOpen fall back to navigate('post')
+  const handlePost = () => {
+    setMobileOpen(false);
+    if (onPostOpen) {
+      onPostOpen();
+    } else {
+      onNavigate('post');
+    }
+  };
+
   const { user, signOut } = useAuth();
 
   return (
@@ -32,15 +55,9 @@ export default function Navbar({
       <motion.header
         className={styles.nav}
         animate={{
-          background: scrolled
-            ? 'rgba(255, 255, 255, 0.88)'
-            : 'rgba(250, 247, 255, 0.0)',
-          borderBottomColor: scrolled
-            ? 'rgba(109, 74, 255, 0.1)'
-            : 'rgba(109, 74, 255, 0.0)',
-          boxShadow: scrolled
-            ? '0 1px 32px rgba(109, 74, 255, 0.1)'
-            : '0 0 0 rgba(0,0,0,0)',
+          background: scrolled ? 'rgba(255, 255, 255, 0.88)' : 'rgba(250, 247, 255, 0.0)',
+          borderBottomColor: scrolled ? 'rgba(109, 74, 255, 0.1)' : 'rgba(109, 74, 255, 0.0)',
+          boxShadow: scrolled ? '0 1px 32px rgba(109, 74, 255, 0.1)' : '0 0 0 rgba(0,0,0,0)',
         }}
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       >
@@ -86,62 +103,44 @@ export default function Navbar({
 
           {/* Actions */}
           <div className={styles.actions}>
-           {user ? (
-  <motion.button
-    className={styles.iconBtn}
-    whileTap={{ scale: 0.94 }}
-    onClick={async () => {
-      const action = window.prompt(
-        "Type:\n\n1 = Profile\n2 = Logout"
-      );
+            {user ? (
+              <motion.button
+                className={styles.iconBtn}
+                whileTap={{ scale: 0.94 }}
+                onClick={async () => {
+                  const action = window.prompt('Type:\n\n1 = Profile\n2 = Logout');
+                  if (action === '2') await signOut();
+                  else handleNav('profile');
+                }}
+                title={user.email}
+              >
+                <img
+                  src={
+                    user.user_metadata?.avatar_url ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.email)}&background=6D4AFF&color=fff`
+                  }
+                  alt="profile"
+                  style={{ width: 28, height: 28, borderRadius: '50%' }}
+                />
+              </motion.button>
+            ) : (
+              <motion.button
+                className={styles.iconBtn}
+                onClick={onAuthOpen}
+                whileTap={{ scale: 0.94 }}
+                title="Login"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </motion.button>
+            )}
 
-      if (action === "2") {
-        await signOut();
-      } else {
-        handleNav("profile");
-      }
-    }}
-    title={user.email}
-  >
-    <img
-      src={
-        user.user_metadata?.avatar_url ||
-        `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          user.email
-        )}&background=6D4AFF&color=fff`
-      }
-      alt="profile"
-      style={{
-        width: 28,
-        height: 28,
-        borderRadius: "50%"
-      }}
-    />
-  </motion.button>
-) : (
-  <motion.button
-    className={styles.iconBtn}
-    onClick={onAuthOpen}
-    whileTap={{ scale: 0.94 }}
-    title="Login"
-  >
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-      <circle cx="12" cy="7" r="4"/>
-    </svg>
-  </motion.button>
-)}
-
+            {/* ── + Post button — now calls handlePost, never navigates ── */}
             <motion.button
               className={styles.postBtn}
-              onClick={() => {
-  if (!user) {
-    onAuthOpen();
-    return;
-  }
-
-  handleNav("post");
-}}
+              onClick={handlePost}
               whileTap={{ scale: 0.96 }}
             >
               <span className={styles.postBtnPlus}>+</span> Post
@@ -153,21 +152,9 @@ export default function Navbar({
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-label="Toggle menu"
             >
-              <motion.span
-                className={styles.bar}
-                animate={mobileOpen ? { rotate: 45, y: 7 } : { rotate: 0, y: 0 }}
-                transition={{ duration: 0.25 }}
-              />
-              <motion.span
-                className={styles.bar}
-                animate={mobileOpen ? { opacity: 0, scaleX: 0 } : { opacity: 1, scaleX: 1 }}
-                transition={{ duration: 0.2 }}
-              />
-              <motion.span
-                className={styles.bar}
-                animate={mobileOpen ? { rotate: -45, y: -7 } : { rotate: 0, y: 0 }}
-                transition={{ duration: 0.25 }}
-              />
+              <motion.span className={styles.bar} animate={mobileOpen ? { rotate: 45, y: 7 }  : { rotate: 0, y: 0 }}  transition={{ duration: 0.25 }} />
+              <motion.span className={styles.bar} animate={mobileOpen ? { opacity: 0, scaleX: 0 } : { opacity: 1, scaleX: 1 }} transition={{ duration: 0.2 }} />
+              <motion.span className={styles.bar} animate={mobileOpen ? { rotate: -45, y: -7 } : { rotate: 0, y: 0 }} transition={{ duration: 0.25 }} />
             </button>
           </div>
         </div>
@@ -197,6 +184,7 @@ export default function Navbar({
                 </div>
                 <button className={styles.mobileClose} onClick={() => setMobileOpen(false)}>✕</button>
               </div>
+
               <div className={styles.mobileLinks}>
                 {NAV_LINKS.map((link, i) => (
                   <motion.button
@@ -213,14 +201,10 @@ export default function Navbar({
                   </motion.button>
                 ))}
               </div>
+
               <div className={styles.mobileFoot}>
-                <button className={styles.mobilePostBtn} onClick={() => {
-                  if (!user) {
-                    onAuthOpen();
-                    return;
-                  }
-                  handleNav("post");
-                }}>
+                {/* Mobile "+ Post Something" — same handlePost guard */}
+                <button className={styles.mobilePostBtn} onClick={handlePost}>
                   + Post Something
                 </button>
               </div>
