@@ -780,7 +780,9 @@ export default function Community({ onNavigate }) {
         fetchStats();
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'community_posts', filter: `channel_slug=eq.${activeChannel}` }, (payload) => {
-        setPosts(prev => prev.filter(p => p.id !== payload.old.id));
+        const deletedId = payload.old?.id;
+        if (!deletedId) return;
+        setPosts(prev => prev.filter(p => p.id !== deletedId));
         fetchStats();
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'community_posts', filter: `channel_slug=eq.${activeChannel}` }, (payload) => {
@@ -835,7 +837,6 @@ export default function Community({ onNavigate }) {
   const handleDelete = async (postId) => {
     if (!window.confirm('Delete this post? This cannot be undone.')) return;
     await supabase.from('community_posts').delete().eq('id', postId);
-    setPosts(prev => prev.filter(p => p.id !== postId));
     fetchStats();
   };
 
