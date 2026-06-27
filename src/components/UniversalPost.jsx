@@ -217,7 +217,7 @@ function ErrorBox({ message }) {
 
 // ── PG Listing ────────────────────────────────────────────────────────────────
 function PGForm({ user, onSuccess }) {
-  const [f, setF] = useState({ name: '', rent: '', deposit: '', gender: 'any', food: 'none', amenities: '', contact: '', description: '', images: [] });
+  const [f, setF] = useState({ name: '', rent: '', deposit: '', gender: 'unisex', occupancy: 'single', food: 'none', amenities: '', contact: '', address: '', description: '', images: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const set = k => e => setF(p => ({ ...p, [k]: e.target.value }));
@@ -227,11 +227,19 @@ function PGForm({ user, onSuccess }) {
     if (!f.name || !f.rent) { setError('Name and rent are required.'); return; }
     setLoading(true); setError('');
     const { error: err } = await supabase.from('pg_listings').insert({
-      user_id: user.id, name: f.name, rent: parseInt(f.rent),
+      owner_id: user.id,
+      status: 'pending',
+      title: f.name,
+      rent: parseInt(f.rent),
       deposit: f.deposit ? parseInt(f.deposit) : null,
-      gender_preference: f.gender, food: f.food,
+      gender: f.gender,
+      occupancy: f.occupancy || 'single',
+      food_included: f.food !== 'none',
       amenities: f.amenities.split(',').map(s => s.trim()).filter(Boolean),
-      owner_contact: f.contact, description: f.description, images: f.images,
+      address: f.address,
+      contact_phone: f.contact,
+      description: f.description,
+      images: f.images,
     });
     setLoading(false);
     if (err) { setError(err.message); return; }
@@ -249,16 +257,24 @@ function PGForm({ user, onSuccess }) {
       </Row>
       <Row>
         <Select label="Gender" value={f.gender} onChange={set('gender')}>
-          <option value="any">Any</option>
+          <option value="unisex">Any</option>
           <option value="male">Male only</option>
           <option value="female">Female only</option>
         </Select>
+        <Select label="Occupancy" value={f.occupancy} onChange={set('occupancy')}>
+          <option value="single">Single</option>
+          <option value="double">Double</option>
+          <option value="triple">Triple</option>
+        </Select>
+      </Row>
+      <Row>
         <Select label="Food" value={f.food} onChange={set('food')}>
           <option value="none">No food</option>
           <option value="veg">Veg meals</option>
           <option value="both">Veg + Non-veg</option>
         </Select>
       </Row>
+      <Input label="Address" required value={f.address} onChange={set('address')} placeholder="12, 5th Cross, Spice Garden, Bommanahalli" />
       <Input label="Amenities (comma-separated)" value={f.amenities} onChange={set('amenities')} placeholder="WiFi, AC, Washing Machine, Parking" />
       <Input label="Owner Contact" value={f.contact} onChange={set('contact')} placeholder="+91 98765 43210" />
       <Textarea label="Description" rows={3} value={f.description} onChange={set('description')} placeholder="Describe the property, location, nearby landmarks…" />
@@ -680,13 +696,13 @@ function TypePicker({ onSelect }) {
  * The component resets its inner step-state every time isOpen flips to true,
  * so re-opening always starts at the type-picker.
  */
-export default function UniversalPost({ isOpen, onClose, onSuccess, user }) {
+export default function UniversalPost({ isOpen, onClose, onSuccess, user, defaultType = null }) {
   const [selected, setSelected] = useState(null);
   const [toast, showToast] = useToast();
 
-  // Reset to type-picker whenever the modal opens
+  // Reset to type-picker (or defaultType) whenever the modal opens
   const prevOpen = useRef(false);
-  if (isOpen && !prevOpen.current) setSelected(null);
+  if (isOpen && !prevOpen.current) setSelected(defaultType);
   prevOpen.current = isOpen;
 
   const handleSuccess = (msg, type) => {

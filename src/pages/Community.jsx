@@ -771,12 +771,14 @@ export default function Community({ onNavigate }) {
     const channel = supabase
       .channel(`community:${activeChannel}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_posts', filter: `channel_slug=eq.${activeChannel}` }, async (payload) => {
+        // Skip if this post was created by the current user — already added locally
+        if (user && payload.new.user_id === user.id) { fetchStats(); return; }
         const { data } = await supabase
           .from('community_posts')
           .select(`*, profiles:user_id ( id, full_name, username, avatar_url, is_verified, occupation )`)
           .eq('id', payload.new.id)
           .single();
-        if (data) setPosts(prev => [data, ...prev]);
+        if (data) setPosts(prev => prev.some(p => p.id === data.id) ? prev : [data, ...prev]);
         fetchStats();
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'community_posts', filter: `channel_slug=eq.${activeChannel}` }, (payload) => {
@@ -791,7 +793,7 @@ export default function Community({ onNavigate }) {
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, [activeChannel, fetchStats]);
+  }, [activeChannel]);
 
   // ── Infinite scroll ───────────────────────────────────────────────────────
   useEffect(() => {

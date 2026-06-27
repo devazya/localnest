@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import MainLayout from './layouts/MainLayout';
 import Home from './pages/Home';
@@ -9,13 +9,15 @@ import RideShare from './pages/RideShare';
 import Events from './pages/Events';
 import BuySell from './pages/BuySell';
 import Roommates from './pages/Roommates';
-import PgListings from './pages/PgListings';
-import PgDetails from './pages/PgDetails';
-import Shops from './pages/Shops';
-import Gyms from './pages/Gyms';
-import AuthModal from './components/auth/AuthModal';
-import UniversalPost from './components/UniversalPost';
+
 import { useAuth } from './context/AuthContext';
+import AuthModal from './components/auth/AuthModal';
+
+const PgListings   = lazy(() => import('./pages/PgListings'));
+const PgDetails    = lazy(() => import('./pages/PgDetails'));
+const Shops        = lazy(() => import('./pages/Shops'));
+const Gyms         = lazy(() => import('./pages/Gyms'));
+const UniversalPost = lazy(() => import('./components/UniversalPost'));
 
 function Stub({ name, onNavigate }) {
   return (
@@ -31,7 +33,7 @@ function Stub({ name, onNavigate }) {
 
 const PAGE_COMPONENTS = {
   home:      (nav) => <Home       onNavigate={nav} />,
-  pgs:       (nav) => <PgListings onNavigate={nav} />,
+  pgs:       (nav, user) => <PgListings onNavigate={nav} user={user} />,
   pgdetails: (nav) => <PgDetails  onNavigate={nav} />,
   shops:     (nav) => <Shops      onNavigate={nav} />,
   gyms:      (nav) => <Gyms       onNavigate={nav} />,
@@ -58,6 +60,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [authOpen, setAuthOpen]       = useState(false);
   const [postOpen, setPostOpen]       = useState(false);
+  const [postType, setPostType]       = useState(null);
 
   // openPostAfterLogin: when the user clicks "+ Post" while logged out,
   // we open auth first, then automatically open the post modal once they
@@ -85,18 +88,19 @@ export default function App() {
     }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openPost = () => {
+  const openPost = (type = null) => {
     if (!user) {
-      // Remember to open the post modal once auth succeeds
       setOpenPostAfterLogin(true);
       setAuthOpen(true);
     } else {
+      setPostType(type);
       setPostOpen(true);
     }
   };
 
   const navigate = (page) => {
     if (page === 'post') { openPost(); return; }
+    if (page === 'post:pg') { openPost('pg'); return; }
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -107,6 +111,7 @@ export default function App() {
   };
 
   const renderPage = PAGE_COMPONENTS[currentPage] ?? PAGE_COMPONENTS['home'];
+  const pageContent = renderPage(navigate, user);
 
   return (
     <MainLayout
@@ -123,7 +128,7 @@ export default function App() {
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         >
-          {renderPage(navigate)}
+          <Suspense fallback={null}>{pageContent}</Suspense>
         </motion.div>
       </AnimatePresence>
 
@@ -132,12 +137,17 @@ export default function App() {
         onClose={() => { setAuthOpen(false); setOpenPostAfterLogin(false); }}
       />
 
-      <UniversalPost
-        isOpen={postOpen}
-        onClose={() => setPostOpen(false)}
-        onSuccess={handlePostSuccess}
-        user={user}
-      />
+      {postOpen && (
+        <Suspense fallback={null}>
+          <UniversalPost
+            isOpen={postOpen}
+            onClose={() => { setPostOpen(false); setPostType(null); }}
+            onSuccess={handlePostSuccess}
+            user={user}
+            defaultType={postType}
+          />
+        </Suspense>
+      )}
     </MainLayout>
   );
 }
