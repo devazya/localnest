@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+/* Plus Jakarta Sans loaded via index.html <link> for best performance */
 @import './variables.css';
 @import './typography.css';
 @import './animations.css';
@@ -7,7 +7,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; font-size: 16px; }
 body {
-  background: #F5F4FF;
+  background: #ffffff;
   color: #0D0820;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;

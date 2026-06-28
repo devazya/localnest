@@ -6,14 +6,14 @@ export default function MainLayout({ children, currentPage, onNavigate, onAuthOp
   const go = (page) => { onNavigate(page); window.scrollTo({ top:0, behavior:'smooth' }); };
 
   return (
-    <div style={{ minHeight:'100vh', background:'var(--bg)' }}>
+    <div style={{ minHeight:'100vh', background:'#ffffff' }}>
       {/* Desktop-only top bar */}
       <Navbar currentPage={currentPage} onNavigate={go} onAuthOpen={onAuthOpen} onPostOpen={onPostOpen} />
 
       {/* Main content
           Mobile: no top padding (pages handle their own headers)
           Desktop: pad for the fixed navbar */}
-      <main style={{ minHeight:'100vh' }} className="main-content">
+      <main style={{ minHeight:'100vh', background:'#ffffff' }} className="main-content">
         {children}
       </main>
 

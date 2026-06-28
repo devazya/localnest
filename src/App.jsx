@@ -211,6 +211,7 @@ export default function App() {
           animate={{ opacity:1, y:0 }}
           exit={{ opacity:0, y:-8 }}
           transition={{ duration:0.2, ease:[0.22,1,0.36,1] }}
+          style={{ background:'#ffffff', minHeight:'100vh' }}
         >
           <Suspense fallback={null}>{render(navigate, user)}</Suspense>
         </motion.div>
