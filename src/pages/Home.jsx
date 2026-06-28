@@ -1,344 +1,295 @@
-import { motion } from 'framer-motion';
-import Hero from '../components/hero/Hero';
-import { PG_DATA, SHOP_DATA, COMMUNITY_POSTS, EVENT_DATA, LOCAL_PULSE, POST_TYPE_CONFIG } from '../data/index';
-import CategorySection from '../components/sections/CategorySection';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import LocalityNetwork from '../components/hero/LocalityNetwork';
+import { COMMUNITY_POSTS, EVENT_DATA, LOCAL_PULSE, PG_DATA } from '../data/index';
+import { supabase } from '../services/supabase/client';
+import { useAuth } from '../context/AuthContext';
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 28 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: '-60px' },
-  transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1], delay },
-});
+/* ─────────────────────────────────────
+   LIVE ACTIVITIES (floating card cycle)
+───────────────────────────────────── */
+const ACTIVITIES = [
+  { id:1, nodeId:'rides',  icon:'🚗', title:'Ride to Electronic City', sub:'2 seats left',            route:'rideshare' },
+  { id:2, nodeId:'events', icon:'📅', title:'Weekend Football',         sub:'Today at 6:00 PM',        route:'events'    },
+  { id:3, nodeId:'pg',     icon:'🏠', title:'GreenNest PG',             sub:'₹8,500 · Available now',  route:'pgs'       },
+  { id:4, nodeId:'cafe',   icon:'☕', title:'Brew Cafe',                 sub:'20% OFF today',           route:'shops'     },
+  { id:5, nodeId:'gym',    icon:'💪', title:"Gold's Gym",               sub:'Free trial today',         route:'gyms'      },
+];
 
-/* ─── Shared UI atoms ─── */
-function SectionHeader({ eyebrow, title, accent, subtitle, onSeeAll }) {
-  return (
-    <div className="section-header">
-      <div>
-        {eyebrow && <div className="section-eyebrow">{eyebrow}</div>}
-        <h2 className="section-title">
-          {title}{accent && <> <span className="accent">{accent}</span></>}
-        </h2>
-        {subtitle && <p className="section-subtitle">{subtitle}</p>}
-      </div>
-      {onSeeAll && (
-        <button className="see-all-btn" onClick={onSeeAll}>
-          View all
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
-        </button>
-      )}
-    </div>
-  );
+function useLiveActivity() {
+  const [current, setCurrent] = useState(ACTIVITIES[0]);
+  const idx = useRef(0);
+  useEffect(() => {
+    const show = () => {
+      setCurrent(ACTIVITIES[idx.current % ACTIVITIES.length]);
+      idx.current++;
+      setTimeout(() => setCurrent(null), 4000);
+    };
+    const t1 = setTimeout(show, 1200);
+    const iv = setInterval(show, 6000);
+    return () => { clearTimeout(t1); clearInterval(iv); };
+  }, []);
+  return current;
 }
 
-/* ─── PG Card ─── */
-function PGCard({ pg }) {
-  return (
-    <div style={{
-      background: 'rgba(255,255,255,0.82)',
-      border: '1.5px solid rgba(255,255,255,0.7)',
-      borderRadius: 20,
-      overflow: 'hidden',
-      transition: 'all 0.28s ease',
-      cursor: 'pointer',
-      backdropFilter: 'blur(16px)',
-      boxShadow: '0 4px 20px rgba(109,74,255,0.08)',
-    }}
-    onMouseEnter={e => {
-      e.currentTarget.style.transform = 'translateY(-6px)';
-      e.currentTarget.style.boxShadow = '0 20px 48px rgba(109,74,255,0.16)';
-      e.currentTarget.style.borderColor = 'rgba(109,74,255,0.2)';
-    }}
-    onMouseLeave={e => {
-      e.currentTarget.style.transform = '';
-      e.currentTarget.style.boxShadow = '0 4px 20px rgba(109,74,255,0.08)';
-      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)';
-    }}
-    >
-      {/* Image */}
-      <div style={{ height: 185, position: 'relative', overflow: 'hidden' }}>
-        {pg.image
-          ? <img src={pg.image} alt={pg.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-          : <div style={{ height:'100%', background:'linear-gradient(135deg,#EDE9FE,#DDD6FE)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:48, opacity:0.5 }}>🏠</div>
-        }
-        <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(255,255,255,0.9) 0%, transparent 50%)' }} />
-        <div style={{ position:'absolute', top:12, left:12, display:'flex', gap:6, flexWrap:'wrap' }}>
-          {pg.sponsored && <span className="badge badge-amber">⭐ Sponsored</span>}
-          {pg.vacancy
-            ? <span className="badge badge-green">✓ Available</span>
-            : <span className="badge badge-red">Full</span>}
-          {pg.verified && <span className="badge badge-muted">✓ Verified</span>}
-        </div>
-        <div style={{ position:'absolute', top:12, right:12, background:'rgba(255,255,255,0.85)', backdropFilter:'blur(8px)', borderRadius:'50%', width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, cursor:'pointer', border:'1px solid rgba(109,74,255,0.1)' }}>♡</div>
-      </div>
+/* ─────────────────────────────────────
+   LIVE UPDATES section data
+───────────────────────────────────── */
+const LIVE_UPDATES = [
+  { id:1, icon:'🚗', title:'Ride to Electronic City', sub:'2 seats left',      route:'rideshare' },
+  { id:2, icon:'⚽', title:'Weekend Football Match',   sub:'Today 6 PM',         route:'events'    },
+  { id:3, icon:'☕', title:'Cafe 20% OFF\nGareo 30% OFF', sub:'Green Sector',   route:'shops'     },
+];
 
-      {/* Body */}
-      <div style={{ padding:'16px 18px' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8, gap:8 }}>
-          <div style={{ fontFamily:'var(--font-display)', fontSize:15, fontWeight:600, color:'var(--text-primary)', lineHeight:1.3 }}>{pg.name}</div>
-          <div style={{ textAlign:'right', flexShrink:0 }}>
-            <div style={{ fontFamily:'var(--font-display)', fontSize:18, fontWeight:700, color:'var(--primary)' }}>₹{pg.rent.toLocaleString()}</div>
-            <div style={{ fontSize:10, color:'var(--text-muted)' }}>/month</div>
+/* ─────────────────────────────────────
+   UPCOMING EVENTS section data
+───────────────────────────────────── */
+const UPCOMING_EVENTS = [
+  {
+    id:1, icon:'⚽', bg:'#FFF3E0',
+    title:'Weekend Football Match',
+    time:'Today • 6:00 PM',
+    location:'Green Park, Koramangala',
+    avatars:['#6D4AFF','#EC4899','#10B981'],
+    count:24,
+  },
+  {
+    id:2, icon:'🧘', bg:'#E8F5E9',
+    title:'Community Yoga Session',
+    time:'Tomorrow • 7:00 AM',
+    location:'Sunrise Park',
+    avatars:['#F59E0B','#6D4AFF','#3B82F6'],
+    count:18,
+  },
+  {
+    id:3, icon:'🎤', bg:'#F3E8FF',
+    title:'Open Mic Night',
+    time:'25 May • 7:30 PM',
+    location:'The Local Cafe',
+    avatars:['#EF4444','#10B981','#6D4AFF'],
+    count:35,
+  },
+];
+
+/* ─────────────────────────────────────
+   POST TAG CONFIG
+───────────────────────────────────── */
+const POST_TAG = {
+  announcement: { label:'Announcement', color:'#D97706', bg:'rgba(217,119,6,0.1)' },
+  ride:         { label:'Ride',          color:'#0284C7', bg:'rgba(2,132,199,0.1)' },
+  event:        { label:'Event',         color:'#7C3AED', bg:'rgba(124,58,237,0.1)' },
+  'buy-sell':   { label:'Buy/Sell',      color:'#059669', bg:'rgba(5,150,105,0.1)' },
+  roommate:     { label:'Roommate',      color:'#EC4899', bg:'rgba(236,72,153,0.1)' },
+  help:         { label:'Help',          color:'#6B7280', bg:'rgba(107,114,128,0.1)' },
+};
+
+/* ═══════════════════════════════════════════════
+   COMPONENTS
+═══════════════════════════════════════════════ */
+
+/* ── Top header ── */
+function HomeHeader({ onNavigate }) {
+  const { user } = useAuth();
+  const h = new Date().getHours();
+  const greeting = h < 12 ? 'Good Morning' : h < 17 ? 'Good Afternoon' : 'Good Evening';
+  const emoji    = h < 12 ? '👋' : h < 17 ? '☀️' : '🌙';
+
+  return (
+    <div style={{ padding:'16px 20px 0', background:'#fff' }}>
+      {/* Location + Notif + Avatar */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+        <button style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', cursor:'pointer', padding:0 }}>
+          <div style={{ width:30, height:30, borderRadius:9, background:'rgba(109,74,255,0.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6D4AFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
           </div>
-        </div>
-        <div style={{ fontSize:12.5, color:'var(--text-muted)', marginBottom:10, display:'flex', alignItems:'center', gap:4 }}>
-          📍 {pg.location} · {pg.distance}
-        </div>
-        <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
-          {[pg.gender, pg.furnishing, pg.occupancy].map(m => (
-            <span key={m} style={{ background:'rgba(109,74,255,0.06)', border:'1px solid rgba(109,74,255,0.12)', borderRadius:6, padding:'2px 9px', fontSize:11.5, color:'var(--text-secondary)' }}>{m}</span>
-          ))}
-        </div>
-        <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:14 }}>
-          {pg.amenities.slice(0,4).map(a => (
-            <span key={a} style={{ background:'rgba(109,74,255,0.06)', border:'1px solid rgba(109,74,255,0.14)', borderRadius:5, padding:'2px 8px', fontSize:11, color:'var(--primary)' }}>{a}</span>
-          ))}
-        </div>
-        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          <div style={{ fontSize:12.5, color:'var(--text-secondary)', display:'flex', alignItems:'center', gap:4 }}>
-            <span style={{ color:'#F59E0B', fontWeight:600 }}>★ {pg.rating}</span> ({pg.reviews})
-          </div>
-          <button style={{ flex:1, background:'var(--primary)', color:'#fff', border:'none', padding:'8px 16px', borderRadius:9, fontSize:13, fontWeight:600, cursor:'pointer', transition:'all 0.2s', boxShadow:'0 4px 14px rgba(109,74,255,0.25)' }}
-            onMouseEnter={e=>{e.currentTarget.style.background='#5B38E8';e.currentTarget.style.transform='translateY(-1px)';}}
-            onMouseLeave={e=>{e.currentTarget.style.background='var(--primary)';e.currentTarget.style.transform='';}}
-          >View Details</button>
-          <button style={{ background:'rgba(109,74,255,0.06)', border:'1px solid rgba(109,74,255,0.14)', color:'var(--text-secondary)', padding:'8px 13px', borderRadius:9, fontSize:13, cursor:'pointer', transition:'all 0.2s' }}>📞</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Shop Card ─── */
-function ShopCard({ shop }) {
-  const catIcon = { Cafe:'☕', Laundry:'👕', Pharmacy:'💊', Grocery:'🛒', Printing:'🖨️', Tiffin:'🍱' };
-  return (
-    <div style={{ background:'rgba(255,255,255,0.82)', border:'1.5px solid rgba(255,255,255,0.7)', borderRadius:16, padding:18, backdropFilter:'blur(16px)', cursor:'pointer', transition:'all 0.25s ease', display:'flex', gap:14, boxShadow:'0 4px 16px rgba(109,74,255,0.07)' }}
-      onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(109,74,255,0.2)';e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.boxShadow='0 12px 32px rgba(109,74,255,0.13)';}}
-      onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(255,255,255,0.7)';e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='0 4px 16px rgba(109,74,255,0.07)';}}
-    >
-      <div style={{ width:48, height:48, background:'rgba(109,74,255,0.08)', border:'1px solid rgba(109,74,255,0.14)', borderRadius:12, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>
-        {catIcon[shop.category] || '🛒'}
-      </div>
-      <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:4 }}>
-          <div style={{ fontWeight:600, fontSize:14.5, color:'var(--text-primary)' }}>{shop.name}</div>
-          <span style={{ fontSize:11, fontWeight:600, color: shop.isOpen ? '#059669' : '#DC2626', background: shop.isOpen ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', padding:'2px 8px', borderRadius:999, flexShrink:0 }}>
-            {shop.isOpen ? 'Open' : 'Closed'}
-          </span>
-        </div>
-        <div style={{ fontSize:12.5, color:'var(--text-muted)', marginBottom:6 }}>{shop.description}</div>
-        <div style={{ display:'flex', gap:12, fontSize:12, color:'var(--text-muted)' }}>
-          <span>📍 {shop.distance}</span>
-          <span>⏰ {shop.hours}</span>
-          <span style={{ color:'#F59E0B' }}>★ {shop.rating}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Community Post Card ─── */
-function PostCard({ post }) {
-  const cfg = POST_TYPE_CONFIG[post.type] || POST_TYPE_CONFIG.help;
-  return (
-    <div style={{ background:'rgba(255,255,255,0.82)', border:'1.5px solid rgba(255,255,255,0.7)', borderRadius:16, padding:18, backdropFilter:'blur(16px)', cursor:'pointer', transition:'all 0.25s ease', boxShadow:'0 2px 12px rgba(109,74,255,0.07)' }}
-      onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(109,74,255,0.18)';e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 8px 28px rgba(109,74,255,0.12)';}}
-      onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(255,255,255,0.7)';e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='0 2px 12px rgba(109,74,255,0.07)';}}
-    >
-      {post.pinned && <div style={{ fontSize:11, color:'#D97706', marginBottom:8, fontWeight:600 }}>📌 Pinned</div>}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
-        <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-          <div style={{ width:36, height:36, background:'rgba(109,74,255,0.1)', border:'1px solid rgba(109,74,255,0.18)', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-display)', fontWeight:700, fontSize:14, color:'var(--primary)' }}>{post.avatar}</div>
           <div>
-            <div style={{ fontSize:13.5, fontWeight:600, color:'var(--text-primary)', display:'flex', alignItems:'center', gap:5 }}>
-              {post.author}
-              {post.verified && <span style={{ fontSize:10, color:'var(--primary)' }}>✓</span>}
+            <div style={{ fontSize:13.5, fontWeight:700, color:'#0D0820', lineHeight:1.2, display:'flex', alignItems:'center', gap:4 }}>
+              Green Sector
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2.5"><path d="m6 9 6 6 6-6"/></svg>
             </div>
-            <div style={{ fontSize:11.5, color:'var(--text-muted)' }}>{post.time}</div>
+            <div style={{ fontSize:11, color:'#9CA3AF', marginTop:1 }}>Bangalore</div>
           </div>
+        </button>
+
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <button style={{ position:'relative', width:38, height:38, borderRadius:11, background:'#fff', border:'1.5px solid rgba(0,0,0,0.07)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', boxShadow:'0 1px 6px rgba(0,0,0,0.07)' }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            <span style={{ position:'absolute', top:5, right:5, width:15, height:15, background:'#EF4444', borderRadius:'50%', border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:7.5, fontWeight:800, color:'#fff' }}>3</span>
+          </button>
+          {user ? (
+            <img
+              src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.email)}&background=6D4AFF&color=fff`}
+              alt="avatar"
+              onClick={() => onNavigate('profile')}
+              style={{ width:40, height:40, borderRadius:13, objectFit:'cover', cursor:'pointer', border:'2px solid rgba(109,74,255,0.18)' }}
+            />
+          ) : (
+            <button onClick={() => onNavigate('profile')} style={{ width:40, height:40, borderRadius:13, background:'#E9E5FF', border:'2px solid rgba(109,74,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6D4AFF" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </button>
+          )}
         </div>
-        <span style={{ fontSize:10.5, fontWeight:600, color: cfg.color, background: cfg.bg, padding:'3px 10px', borderRadius:999 }}>{cfg.label}</span>
       </div>
-      <div style={{ fontSize:14, fontWeight:600, color:'var(--text-primary)', marginBottom:6, lineHeight:1.4 }}>{post.title}</div>
-      <div style={{ fontSize:13, color:'var(--text-secondary)', lineHeight:1.55, marginBottom:12, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{post.content}</div>
-      <div style={{ display:'flex', gap:14, fontSize:12.5, color:'var(--text-muted)' }}>
-        <button style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:12.5 }}>♡ {post.likes}</button>
-        <button style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:12.5 }}>💬 {post.comments}</button>
+
+      {/* Greeting */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:26, fontWeight:800, color:'#0D0820', fontFamily:'var(--font-display)', letterSpacing:-0.5, lineHeight:1.18 }}>
+          {greeting}! {emoji}
+        </div>
+        <div style={{ fontSize:13.5, color:'#6B7280', marginTop:5 }}>
+          Discover, connect &amp; belong to your locality
+        </div>
       </div>
     </div>
   );
 }
 
-/* ─── Event Card ─── */
-function EventCard({ event }) {
-  const colors = { Sports:'#3B82F6', Social:'#8B5CF6', Meetup:'#F59E0B' };
-  const col = colors[event.type] || 'var(--primary)';
+/* ── Locality Network Card ── */
+function NetworkCard({ onNavigate, liveActivity }) {
   return (
-    <div style={{ background:'rgba(255,255,255,0.82)', border:'1.5px solid rgba(255,255,255,0.7)', borderRadius:16, padding:'18px 20px', backdropFilter:'blur(16px)', cursor:'pointer', transition:'all 0.25s ease', display:'flex', gap:16, alignItems:'flex-start', boxShadow:'0 2px 12px rgba(109,74,255,0.07)' }}
-      onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(109,74,255,0.18)';e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.boxShadow='0 8px 28px rgba(109,74,255,0.12)';}}
-      onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(255,255,255,0.7)';e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='0 2px 12px rgba(109,74,255,0.07)';}}
-    >
-      <div style={{ textAlign:'center', minWidth:48, background:`${col}14`, border:`1px solid ${col}22`, borderRadius:12, padding:'8px 6px' }}>
-        <div style={{ fontFamily:'var(--font-display)', fontSize:22, fontWeight:700, color:col, lineHeight:1 }}>{event.date.split(', ')[1]?.split(' ')[1] || '28'}</div>
-        <div style={{ fontSize:9, color:col, textTransform:'uppercase', letterSpacing:0.5, fontWeight:600, marginTop:2 }}>{event.date.split(', ')[0]}</div>
-      </div>
-      <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontWeight:600, fontSize:14.5, color:'var(--text-primary)', marginBottom:4 }}>{event.title}</div>
-        <div style={{ fontSize:12.5, color:'var(--text-muted)', marginBottom:8, display:'flex', gap:10 }}>
-          <span>🕐 {event.time}</span>
-          <span>📍 {event.location}</span>
+    <div style={{ margin:'0 20px 20px', background:'#fff', border:'1.5px solid rgba(109,74,255,0.08)', borderRadius:22, overflow:'hidden', boxShadow:'0 4px 24px rgba(109,74,255,0.09), 0 1px 4px rgba(0,0,0,0.04)' }}>
+      {/* Card header */}
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'14px 18px 10px' }}>
+        <div>
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
+            <span style={{ width:7, height:7, background:'#10B981', borderRadius:'50%', display:'inline-block', boxShadow:'0 0 5px rgba(16,185,129,0.65)' }} />
+            <span style={{ fontSize:10, fontWeight:800, color:'#9CA3AF', letterSpacing:1.3, textTransform:'uppercase' }}>LOCAL PULSE</span>
+          </div>
+          <div style={{ fontSize:13, color:'#4B5563', fontWeight:500 }}>Live community activity</div>
         </div>
-        <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-          <span style={{ fontSize:12, color:'var(--text-secondary)' }}>👥 {event.attending} going</span>
-          {event.contribution && <span style={{ fontSize:11, color:'#D97706', background:'rgba(245,158,11,0.1)', padding:'2px 8px', borderRadius:999 }}>{event.contribution}</span>}
+        <div style={{ background:'rgba(109,74,255,0.08)', border:'1.5px solid rgba(109,74,255,0.14)', borderRadius:99, padding:'5px 13px', display:'flex', alignItems:'center', gap:5 }}>
+          <span style={{ width:6, height:6, background:'#10B981', borderRadius:'50%', display:'inline-block' }} />
+          <span style={{ fontSize:12, fontWeight:700, color:'#6D4AFF' }}>186 online</span>
         </div>
       </div>
-      <button style={{ background:'rgba(109,74,255,0.08)', border:'1.5px solid rgba(109,74,255,0.18)', color:'var(--primary)', padding:'7px 16px', borderRadius:9, fontSize:12.5, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap', flexShrink:0, transition:'all 0.2s' }}
-        onMouseEnter={e=>{e.currentTarget.style.background='var(--primary)';e.currentTarget.style.color='#fff';}}
-        onMouseLeave={e=>{e.currentTarget.style.background='rgba(109,74,255,0.08)';e.currentTarget.style.color='var(--primary)';}}
-      >Join</button>
+
+      {/* SVG Network */}
+      <div style={{ height:276, position:'relative' }}>
+        <LocalityNetwork onNavigate={onNavigate} highlightNode={liveActivity?.nodeId} />
+      </div>
     </div>
   );
 }
 
-/* ─── Home Page ─── */
+/* ═══════════════════════════════════════════════
+   HOME PAGE
+═══════════════════════════════════════════════ */
 export default function Home({ onNavigate }) {
-  const featuredPGs = PG_DATA.filter(p => p.featured).slice(0, 3);
+  const liveActivity = useLiveActivity();
+
+  const fu = (delay = 0) => ({
+    initial:{ opacity:0, y:14 },
+    whileInView:{ opacity:1, y:0 },
+    viewport:{ once:true, margin:'-24px' },
+    transition:{ duration:0.4, ease:[0.22,1,0.36,1], delay },
+  });
 
   return (
-    <div>
-      {/* Hero */}
-      <Hero onNavigate={onNavigate} />
+    <div style={{ background:'#F5F4FF', minHeight:'100vh', paddingBottom:'calc(var(--bottom-nav-h) + var(--safe-bottom) + 16px)' }}>
 
-      {/* CategorySection - ADDED AS INSTRUCTED */}
-      <CategorySection onNavigate={onNavigate} />
+      {/* ── Header ── */}
+      <HomeHeader onNavigate={onNavigate} />
 
-      <div style={{ height: 40 }} />
+      {/* ── Locality Network (Local Pulse) ── */}
+      <motion.div {...fu(0)} style={{ marginTop:4 }}>
+        <NetworkCard onNavigate={onNavigate} liveActivity={liveActivity} />
+      </motion.div>
 
-      {/* Featured PGs */}
-      <motion.section className="ln-section" {...fadeUp(0)}>
-        <SectionHeader
-          eyebrow="ACCOMMODATION"
-          title="Featured"
-          accent="PG Listings"
-          subtitle="Verified stays near you — ready to move in"
-          onSeeAll={() => onNavigate('pgs')}
-        />
-        <div className="cards-grid cards-grid-3">
-          {featuredPGs.map((pg, i) => (
-            <motion.div key={pg.id} {...fadeUp(i * 0.08)}>
-              <PGCard pg={pg} />
-            </motion.div>
+      {/* ── Live Updates ── */}
+      <motion.section {...fu(0.05)} style={{ marginBottom:24 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'0 20px', marginBottom:14 }}>
+          <span style={{ fontSize:11, fontWeight:800, color:'#9CA3AF', letterSpacing:1.2, textTransform:'uppercase' }}>LIVE UPDATES</span>
+          <span style={{ background:'#6D4AFF', color:'#fff', fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, letterSpacing:0.4 }}>LIVE</span>
+        </div>
+        <div style={{ display:'flex', gap:12, overflowX:'auto', paddingLeft:20, paddingRight:20, paddingBottom:4, scrollbarWidth:'none', WebkitOverflowScrolling:'touch' }}>
+          {LIVE_UPDATES.map(item => (
+            <motion.button
+              key={item.id}
+              whileTap={{ scale:0.97 }}
+              onClick={() => onNavigate(item.route)}
+              style={{
+                flexShrink:0, width:145,
+                background:'#fff', border:'1.5px solid rgba(109,74,255,0.08)',
+                borderRadius:18, padding:'14px 14px 16px',
+                boxShadow:'0 2px 14px rgba(0,0,0,0.07)',
+                cursor:'pointer', textAlign:'left',
+                display:'flex', flexDirection:'column', gap:8,
+              }}
+            >
+              <div style={{ fontSize:28 }}>{item.icon}</div>
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, color:'#1D1D1F', lineHeight:1.3, marginBottom:4, whiteSpace:'pre-line' }}>{item.title}</div>
+                <div style={{ fontSize:11.5, color:'#6D4AFF', fontWeight:600 }}>{item.sub}</div>
+              </div>
+            </motion.button>
+          ))}
+          <div style={{ width:8, flexShrink:0 }} />
+        </div>
+      </motion.section>
+
+      {/* ── Upcoming Events ── */}
+      <motion.section {...fu(0.08)} style={{ padding:'0 20px', marginBottom:16 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+          <h2 style={{ fontFamily:'var(--font-display)', fontSize:18, fontWeight:800, color:'#0D0820', letterSpacing:-0.3, margin:0 }}>
+            Upcoming Events
+          </h2>
+          <button onClick={() => onNavigate('events')} style={{ fontSize:13, fontWeight:600, color:'#6D4AFF', background:'none', border:'none', cursor:'pointer', padding:0 }}>
+            View all
+          </button>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          {UPCOMING_EVENTS.map(ev => (
+            <motion.button
+              key={ev.id}
+              whileTap={{ scale:0.985 }}
+              onClick={() => onNavigate('events')}
+              style={{
+                display:'flex', alignItems:'center', gap:14,
+                background:'#fff', border:'1px solid rgba(0,0,0,0.06)',
+                borderRadius:18, padding:'14px 16px',
+                boxShadow:'0 2px 10px rgba(0,0,0,0.05)',
+                cursor:'pointer', textAlign:'left', width:'100%',
+              }}
+            >
+              {/* Event icon */}
+              <div style={{
+                width:52, height:52, borderRadius:14, flexShrink:0,
+                background:ev.bg,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:26,
+              }}>
+                {ev.icon}
+              </div>
+
+              {/* Info */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:14, fontWeight:700, color:'#1D1D1F', lineHeight:1.3, marginBottom:3 }}>{ev.title}</div>
+                <div style={{ fontSize:12, color:'#9CA3AF', marginBottom:2 }}>{ev.time}</div>
+                <div style={{ fontSize:12, color:'#9CA3AF' }}>{ev.location}</div>
+              </div>
+
+              {/* Avatar stack + count */}
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5, flexShrink:0 }}>
+                <div style={{ display:'flex' }}>
+                  {ev.avatars.map((color, i) => (
+                    <div key={i} style={{
+                      width:26, height:26, borderRadius:'50%',
+                      background:color, border:'2px solid #fff',
+                      marginLeft: i > 0 ? -9 : 0,
+                    }} />
+                  ))}
+                </div>
+                <span style={{ fontSize:11.5, color:'#6D4AFF', fontWeight:700 }}>+{ev.count}</span>
+              </div>
+            </motion.button>
           ))}
         </div>
       </motion.section>
 
-      <div className="section-divider" />
-
-      {/* Local Shops */}
-      <motion.section className="ln-section" {...fadeUp(0)}>
-        <SectionHeader
-          eyebrow="NEARBY"
-          title="Local"
-          accent="Shops & Services"
-          subtitle="Everything your locality needs, steps away"
-          onSeeAll={() => onNavigate('shops')}
-        />
-        <div className="cards-grid cards-grid-2">
-          {SHOP_DATA.slice(0, 4).map((shop, i) => (
-            <motion.div key={shop.id} {...fadeUp(i * 0.08)}>
-              <ShopCard shop={shop} />
-            </motion.div>
-          ))}
-        </div>
-      </motion.section>
-
-      <div className="section-divider" />
-
-      {/* Community + Events */}
-      <motion.section
-        className="ln-section"
-        style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:48, alignItems:'start' }}
-        {...fadeUp(0)}
-      >
-        <div>
-          <SectionHeader
-            eyebrow="COMMUNITY"
-            title="What's"
-            accent="happening"
-            onSeeAll={() => onNavigate('community')}
-          />
-          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-            {COMMUNITY_POSTS.slice(0, 3).map((post, i) => (
-              <motion.div key={post.id} {...fadeUp(i * 0.07)}>
-                <PostCard post={post} />
-              </motion.div>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <SectionHeader
-            eyebrow="EVENTS"
-            title="This"
-            accent="Weekend"
-            onSeeAll={() => onNavigate('events')}
-          />
-          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-            {EVENT_DATA.map((ev, i) => (
-              <motion.div key={ev.id} {...fadeUp(i * 0.07)}>
-                <EventCard event={ev} />
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
-      <div className="section-divider" />
-
-      {/* CTA Banner */}
-      <motion.section className="ln-section" {...fadeUp(0)}>
-        <motion.div style={{
-          background: 'linear-gradient(135deg, rgba(109,74,255,0.08) 0%, rgba(143,123,255,0.05) 100%)',
-          border: '1.5px solid rgba(109,74,255,0.14)',
-          borderRadius: 24,
-          padding: '56px 40px',
-          textAlign: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-          backdropFilter: 'blur(12px)',
-          boxShadow: '0 8px 40px rgba(109,74,255,0.08)',
-        }}>
-          <div style={{ position:'absolute', top:-80, left:'50%', transform:'translateX(-50%)', width:500, height:300, background:'radial-gradient(ellipse, rgba(109,74,255,0.1) 0%, transparent 65%)', pointerEvents:'none' }} />
-          <div style={{ fontFamily:'var(--font-display)', fontSize:'clamp(24px, 4vw, 38px)', fontWeight:700, color:'var(--text-primary)', letterSpacing:-1, marginBottom:12 }}>
-            Got something to share with  
-
-            <span style={{ color:'var(--primary)' }}>your community?</span>
-          </div>
-          <p style={{ fontSize:15, color:'var(--text-secondary)', maxWidth:460, margin:'0 auto 28px' }}>
-            Post a PG listing, offer a ride, announce an event, or sell something — it takes 30 seconds.
-          </p>
-          <div style={{ display:'flex', gap:12, justifyContent:'center', flexWrap:'wrap' }}>
-            <button
-              onClick={() => onNavigate('post')}
-              style={{ background:'var(--primary)', color:'#fff', border:'none', padding:'12px 28px', borderRadius:12, fontSize:15, fontWeight:700, cursor:'pointer', transition:'all 0.2s', boxShadow:'0 6px 20px rgba(109,74,255,0.35)' }}
-              onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 10px 30px rgba(109,74,255,0.45)';}}
-              onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='0 6px 20px rgba(109,74,255,0.35)';}}
-            >+ Post Now</button>
-            <button
-              onClick={() => onNavigate('community')}
-              style={{ background:'rgba(255,255,255,0.8)', border:'1.5px solid rgba(109,74,255,0.16)', color:'var(--text-secondary)', padding:'12px 28px', borderRadius:12, fontSize:15, fontWeight:500, cursor:'pointer', transition:'all 0.2s', backdropFilter:'blur(8px)' }}
-              onMouseEnter={e=>{e.currentTarget.style.color='var(--primary)';e.currentTarget.style.borderColor='rgba(109,74,255,0.3)';}}
-              onMouseLeave={e=>{e.currentTarget.style.color='var(--text-secondary)';e.currentTarget.style.borderColor='rgba(109,74,255,0.16)';}}
-            >Browse Community</button>
-          </div>
-        </motion.div>
-      </motion.section>
-
-      <div style={{ height: 32 }} />
     </div>
   );
 }

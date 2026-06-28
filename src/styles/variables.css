@@ -1,64 +1,95 @@
 :root {
-  /* ── Core backgrounds ── */
-  --bg: #FAF7FF;
-  --surface: #F3EEFF;
-  --card: rgba(255, 255, 255, 0.72);
-  --card-solid: #FFFFFF;
-  --metal: rgba(109, 74, 255, 0.12);
-  --border: rgba(255, 255, 255, 0.55);
-  --border-subtle: rgba(109, 74, 255, 0.1);
+  /* ── Backgrounds ── */
+  --bg: #FAFAFA;
+  --bg-2: #F4F2FF;
+  --surface: #FFFFFF;
+  --surface-raised: #FFFFFF;
+  --overlay: rgba(15, 10, 40, 0.55);
 
-  /* ── Brand purples ── */
+  /* ── Brand ── */
   --primary: #6D4AFF;
+  --primary-dark: #5535E0;
   --primary-light: #8F7BFF;
-  --primary-dim: rgba(109, 74, 255, 0.1);
-  --primary-glow: rgba(109, 74, 255, 0.22);
+  --primary-dim: rgba(109, 74, 255, 0.08);
+  --primary-mid: rgba(109, 74, 255, 0.16);
+  --primary-glow: rgba(109, 74, 255, 0.24);
 
-  /* ── Legacy green aliases (kept so non-hero sections don't break) ── */
+  /* ── Legacy aliases (keep existing pages working) ── */
   --green: #6D4AFF;
   --green-accent: #8F7BFF;
   --green-dim: rgba(109, 74, 255, 0.08);
   --green-glow: rgba(109, 74, 255, 0.2);
+  --card: rgba(255,255,255,0.95);
+  --card-solid: #FFFFFF;
+  --metal: rgba(109, 74, 255, 0.12);
+  --border: rgba(109, 74, 255, 0.1);
+  --border-subtle: rgba(109, 74, 255, 0.07);
+  --glass-blur: blur(20px);
+  --glass-shadow: 0 8px 32px rgba(109, 74, 255, 0.1), inset 0 1px 0 rgba(255,255,255,0.8);
 
-  /* ── Semantic colors ── */
+  /* ── Semantic ── */
+  --success: #10B981;
+  --success-dim: rgba(16, 185, 129, 0.1);
+  --warning: #F59E0B;
+  --warning-dim: rgba(245, 158, 11, 0.1);
+  --danger: #EF4444;
+  --danger-dim: rgba(239, 68, 68, 0.1);
+  --info: #3B82F6;
+  --info-dim: rgba(59, 130, 246, 0.1);
+
+  /* ── Legacy ── */
   --blue: #3B82F6;
   --amber: #F59E0B;
   --purple: #8B5CF6;
   --red: #EF4444;
-  --success: #10B981;
 
-  /* ── Typography ── */
-  --text-primary: #111827;
+  /* ── Text ── */
+  --text-primary: #0D0820;
   --text-secondary: #4B5563;
   --text-muted: #9CA3AF;
+  --text-inverse: #FFFFFF;
 
   /* ── Fonts ── */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-display: 'Space Grotesk', sans-serif;
 
+  /* ── 8px spacing grid ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
   /* ── Radius ── */
+  --radius-xs: 6px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
   --radius-2xl: 24px;
+  --radius-3xl: 32px;
   --radius-full: 9999px;
 
-  /* ── Shadows (violet-tinted) ── */
-  --shadow-sm: 0 2px 8px rgba(109, 74, 255, 0.08);
-  --shadow-md: 0 8px 24px rgba(109, 74, 255, 0.12);
-  --shadow-lg: 0 20px 60px rgba(109, 74, 255, 0.14);
-  --shadow-xl: 0 32px 80px rgba(109, 74, 255, 0.18);
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(109,74,255,0.1);
+  /* ── Shadows (depth system) ── */
+  --shadow-xs:  0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm:  0 2px 8px rgba(109,74,255,0.07), 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-md:  0 8px 24px rgba(109,74,255,0.10), 0 2px 6px rgba(0,0,0,0.04);
+  --shadow-lg:  0 16px 48px rgba(109,74,255,0.13), 0 4px 12px rgba(0,0,0,0.05);
+  --shadow-xl:  0 32px 80px rgba(109,74,255,0.18), 0 8px 24px rgba(0,0,0,0.06);
+  --shadow-card: 0 2px 12px rgba(109,74,255,0.07), 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-float: 0 8px 32px rgba(109,74,255,0.22), 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-btn:  0 4px 14px rgba(109,74,255,0.35);
+  --shadow-input-focus: 0 0 0 3px rgba(109,74,255,0.14);
 
-  /* ── Transitions ── */
-  --transition-fast: 0.15s ease;
-  --transition-base: 0.25s ease;
-  --transition-slow: 0.4s ease;
-
-  /* ── Blur ── */
-  --blur-sm: blur(8px);
-  --blur-md: blur(16px);
-  --blur-lg: blur(24px);
-  --blur-xl: blur(32px);
+  /* ── Layout ── */
+  --top-bar-h: 56px;
+  --bottom-nav-h: 72px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --page-max: 1280px;
+  --page-pad: 16px;
 }

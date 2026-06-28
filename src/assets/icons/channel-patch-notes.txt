@@ -1,0 +1,6 @@
+// CHANNEL_DISPLAY update only — replace emoji icons with 3D SVG icon components
+// Full file is preserved; only the CHANNEL_DISPLAY constant and rendering are updated.
+// See Community.jsx for the full file — this is a patch showing the key changes.
+
+// Replace this section at top of Community.jsx:
+// import { AnnouncementsIcon, RidesIcon, EventsIcon, RoommatesIcon, BuySellIcon, SportsIcon, SearchIcon, EmergencyIcon, JobsIcon, MessagesIcon } from '../assets/icons/index.jsx';

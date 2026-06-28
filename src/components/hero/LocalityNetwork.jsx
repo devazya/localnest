@@ -1,150 +1,137 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import styles from './LocalityNetwork.module.css';
 
-/* ── Node definitions ── */
+/* ─── Node definitions matching the mockup ───
+   Positions are % of container (cx, cy)
+   The design shows: PG top-center, GYM right, CAFE bottom-right,
+   SHOPS bottom-center, EVENTS bottom-left (with pulse ring), RIDES left
+*/
 const NODES = [
-  { id: 'community', label: 'COMMUNITY', icon: '👥', color: '#6D4AFF', x: 50, y: 50, center: true,  route: 'community' },
-  { id: 'pg',        label: 'PG',        icon: '🏠', color: '#3B82F6', x: 65, y: 14, center: false, route: 'pgs' },
-  { id: 'gym',       label: 'GYM',       icon: '🏋️', color: '#F59E0B', x: 86, y: 38, center: false, route: 'gyms' },
-  { id: 'cafe',      label: 'CAFE',      icon: '☕', color: '#10B981', x: 82, y: 72, center: false, route: 'community' },
-  { id: 'shop',      label: 'SHOPS',     icon: '🛍️', color: '#10B981', x: 48, y: 82, center: false, route: 'shops' },
-  { id: 'events',    label: 'EVENTS',    icon: '📅', color: '#EF4444', x: 18, y: 62, center: false, route: 'events' },
-  { id: 'rides',     label: 'RIDES',     icon: '🚗', color: '#8B5CF6', x: 18, y: 28, center: false, route: 'rideshare' },
+  { id:'community', label:'COMMUNITY', icon:'👥', cx:50, cy:50, r:42, center:true,  color:'#6D4AFF', textColor:'#fff', route:'community' },
+  { id:'pg',        label:'PG',        icon:'🏠', cx:55, cy:12, r:24, center:false, color:'#6D4AFF', textColor:'#374151', route:'pgs'       },
+  { id:'gym',       label:'GYM',       icon:'🏋️', cx:85, cy:35, r:22, center:false, color:'#F59E0B', textColor:'#374151', route:'gyms'      },
+  { id:'cafe',      label:'CAFE',      icon:'☕', cx:80, cy:72, r:21, center:false, color:'#10B981', textColor:'#374151', route:'shops'     },
+  { id:'shop',      label:'SHOPS',     icon:'🛍️', cx:48, cy:86, r:22, center:false, color:'#EC4899', textColor:'#374151', route:'shops'     },
+  { id:'events',    label:'EVENTS',    icon:'📅', cx:18, cy:70, r:23, center:false, color:'#EF4444', textColor:'#374151', route:'events',   pulse:true },
+  { id:'rides',     label:'RIDES',     icon:'🚗', cx:14, cy:30, r:22, center:false, color:'#8B5CF6', textColor:'#374151', route:'rideshare' },
 ];
 
+/* Edges: from community to each node, plus a couple side edges */
 const EDGES = [
-  ['community', 'pg'],
-  ['community', 'gym'],
-  ['community', 'cafe'],
-  ['community', 'shop'],
-  ['community', 'events'],
-  ['community', 'rides'],
-  ['pg', 'gym'],
-  ['rides', 'pg'],
-  ['cafe', 'events'],
-  ['shop', 'events'],
+  { from:'community', to:'pg',     color:'rgba(109,74,255,0.35)' },
+  { from:'community', to:'gym',    color:'rgba(245,158,11,0.45)' },
+  { from:'community', to:'cafe',   color:'rgba(16,185,129,0.45)' },
+  { from:'community', to:'shop',   color:'rgba(236,72,153,0.45)' },
+  { from:'community', to:'events', color:'rgba(239,68,68,0.45)'  },
+  { from:'community', to:'rides',  color:'rgba(139,92,246,0.45)' },
+  { from:'pg',        to:'rides',  color:'rgba(109,74,255,0.2)'  },
+  { from:'events',    to:'shop',   color:'rgba(239,68,68,0.2)'   },
 ];
 
-export default function LocalityNetwork({ onNavigate }) {
+export default function LocalityNetwork({ onNavigate, highlightNode }) {
   const wrapRef = useRef(null);
-  const [dims, setDims]     = useState({ w: 400, h: 320 });
+  const [dims, setDims] = useState({ w: 340, h: 276 });
   const [hovered, setHovered] = useState(null);
-  const [active, setActive]   = useState('community');
+  const [activeId, setActiveId] = useState(null);
 
-  /* Auto-cycle through outer nodes */
-  useEffect(() => {
-    const outer = NODES.filter(n => !n.center).map(n => n.id);
-    let idx = 0;
-    const id = setInterval(() => {
-      if (!hovered) { setActive(outer[idx % outer.length]); idx++; }
-    }, 2200);
-    return () => clearInterval(id);
-  }, [hovered]);
-
-  /* Respond to container resize */
+  /* Resize */
   useEffect(() => {
     const obs = new ResizeObserver(entries => {
       const { width, height } = entries[0].contentRect;
-      setDims({ w: width || 400, h: height || 320 });
+      if (width > 0) setDims({ w: width, h: height || 276 });
     });
     if (wrapRef.current) obs.observe(wrapRef.current);
     return () => obs.disconnect();
   }, []);
 
-  const pt = useCallback((node) => ({
-    cx: (node.x / 100) * dims.w,
-    cy: (node.y / 100) * dims.h,
+  /* Auto-cycle nodes */
+  useEffect(() => {
+    const outer = NODES.filter(n => !n.center).map(n => n.id);
+    let i = 0;
+    const iv = setInterval(() => {
+      if (!hovered) { setActiveId(outer[i % outer.length]); i++; }
+    }, 2200);
+    return () => clearInterval(iv);
+  }, [hovered]);
+
+  /* Respond to live activity */
+  useEffect(() => {
+    if (highlightNode) setActiveId(highlightNode);
+  }, [highlightNode]);
+
+  /* Convert % → px */
+  const pt = useCallback((n) => ({
+    x: (n.cx / 100) * dims.w,
+    y: (n.cy / 100) * dims.h,
   }), [dims]);
 
   const nodeMap = Object.fromEntries(NODES.map(n => [n.id, { ...n, ...pt(n) }]));
-  const highlight = hovered ?? active;
+  const lit = hovered ?? activeId;
 
-  const handleNodeClick = useCallback((node) => {
+  const handleClick = useCallback((node) => {
     if (onNavigate && node.route) onNavigate(node.route);
   }, [onNavigate]);
 
+  /* Quadratic bezier control point (curve outward from center) */
+  const cpFor = (a, b) => {
+    const ca = nodeMap[a], cb = nodeMap[b];
+    if (!ca || !cb) return { cpx:0, cpy:0 };
+    const mx = (ca.x + cb.x) / 2;
+    const my = (ca.y + cb.y) / 2;
+    // pull control point slightly away from center node
+    const cCenter = nodeMap['community'];
+    const dx = mx - (cCenter?.x ?? dims.w/2);
+    const dy = my - (cCenter?.y ?? dims.h/2);
+    const len = Math.sqrt(dx*dx + dy*dy) || 1;
+    return { cpx: mx + (dx/len)*22, cpy: my + (dy/len)*22 };
+  };
+
   return (
-    <div className={styles.wrapper} ref={wrapRef}>
+    <div ref={wrapRef} style={{ width:'100%', height:'100%', position:'relative' }}>
       <svg
-        className={styles.svg}
+        width="100%" height="100%"
         viewBox={`0 0 ${dims.w} ${dims.h}`}
-        preserveAspectRatio="xMidYMid meet"
+        style={{ position:'absolute', inset:0 }}
         overflow="visible"
-        role="img"
-        aria-label="Locality network visualization"
       >
         <defs>
-          <filter id="nodeShadow" x="-40%" y="-40%" width="180%" height="180%">
-            <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="rgba(109,74,255,0.18)" floodOpacity="1"/>
+          {/* Glow filters */}
+          <filter id="nlglow" x="-60%" y="-60%" width="220%" height="220%">
+            <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="rgba(109,74,255,0.5)"/>
           </filter>
-          <filter id="nodeShadowHov" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="6" stdDeviation="12" floodColor="rgba(109,74,255,0.32)" floodOpacity="1"/>
+          <filter id="nlglownode" x="-60%" y="-60%" width="220%" height="220%">
+            <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor="rgba(109,74,255,0.4)"/>
           </filter>
-          <filter id="centerGlow" x="-60%" y="-60%" width="220%" height="220%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur"/>
-            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-          </filter>
-          {/* Per-edge gradients */}
-          {EDGES.map(([a, b]) => (
-            <linearGradient
-              key={`lg-${a}-${b}`}
-              id={`lg-${a}-${b}`}
-              x1={`${NODES.find(n=>n.id===a).x}%`}
-              y1={`${NODES.find(n=>n.id===a).y}%`}
-              x2={`${NODES.find(n=>n.id===b).x}%`}
-              y2={`${NODES.find(n=>n.id===b).y}%`}
-              gradientUnits="objectBoundingBox"
-            >
-              <stop offset="0%"   stopColor={nodeMap[a]?.color || '#6D4AFF'} stopOpacity="0.55"/>
-              <stop offset="100%" stopColor={nodeMap[b]?.color || '#6D4AFF'} stopOpacity="0.55"/>
-            </linearGradient>
-          ))}
-          {/* Radial glow per node */}
-          {NODES.map(n => (
-            <radialGradient key={`rg-${n.id}`} id={`rg-${n.id}`} cx="50%" cy="50%" r="50%">
-              <stop offset="0%"   stopColor={n.color} stopOpacity="0.28"/>
-              <stop offset="100%" stopColor={n.color} stopOpacity="0"/>
-            </radialGradient>
-          ))}
+          {/* Center node gradient */}
+          <radialGradient id="commGrad" cx="40%" cy="35%" r="65%">
+            <stop offset="0%" stopColor="#8F7BFF"/>
+            <stop offset="100%" stopColor="#5535E0"/>
+          </radialGradient>
         </defs>
 
         {/* ── Edges ── */}
-        {EDGES.map(([a, b], i) => {
-          const na = nodeMap[a], nb = nodeMap[b];
-          if (!na || !nb) return null;
-          const isLit = highlight === a || highlight === b || highlight === 'community';
+        {EDGES.map(({ from, to, color }) => {
+          const a = nodeMap[from], b = nodeMap[to];
+          if (!a || !b) return null;
+          const { cpx, cpy } = cpFor(from, to);
+          const isLit = lit === from || lit === to || lit === 'community';
+          const isHot = (highlightNode === from || highlightNode === to) && highlightNode;
+          const pathId = `ep-${from}-${to}`;
+          const d = `M${a.x},${a.y} Q${cpx},${cpy} ${b.x},${b.y}`;
 
           return (
-            <g key={`e-${a}-${b}`}>
-              {/* Base line */}
-              <line
-                x1={na.cx} y1={na.cy}
-                x2={nb.cx} y2={nb.cy}
-                stroke={isLit ? `url(#lg-${a}-${b})` : 'rgba(109,74,255,0.1)'}
-                strokeWidth={isLit ? 1.8 : 1}
-                strokeDasharray={isLit ? 'none' : '4 6'}
-                style={{ transition: 'stroke 0.4s, stroke-width 0.4s' }}
+            <g key={`e-${from}-${to}`}>
+              <path
+                d={d} fill="none"
+                stroke={isLit ? color : 'rgba(0,0,0,0.08)'}
+                strokeWidth={isHot ? 2.2 : isLit ? 1.6 : 1}
+                strokeDasharray={isLit ? undefined : '4 6'}
+                style={{ transition:'stroke 0.35s, stroke-width 0.35s' }}
               />
-              {/* Travelling packet — forward */}
+              {/* Travelling dot */}
               {isLit && (
-                <circle r="3.5" fill={na.color} opacity="0.9">
-                  <animateMotion
-                    dur={`${2.6 + i * 0.35}s`}
-                    repeatCount="indefinite"
-                    path={`M${na.cx},${na.cy} L${nb.cx},${nb.cy}`}
-                  />
-                </circle>
-              )}
-              {/* Travelling packet — return */}
-              {isLit && (
-                <circle r="3.5" fill={nb.color} opacity="0.9">
-                  <animateMotion
-                    dur={`${2.6 + i * 0.35}s`}
-                    repeatCount="indefinite"
-                    begin={`${(2.6 + i * 0.35) / 2}s`}
-                    path={`M${nb.cx},${nb.cy} L${na.cx},${na.cy}`}
-                  />
+                <circle r={isHot ? 4.5 : 3.5} fill={color} opacity="0.9">
+                  <animateMotion path={d} dur={`${2.2 + EDGES.indexOf({from,to,color})*0.2 || 2.4}s`} repeatCount="indefinite"/>
                 </circle>
               )}
             </g>
@@ -154,104 +141,98 @@ export default function LocalityNetwork({ onNavigate }) {
         {/* ── Nodes ── */}
         {NODES.map((node, i) => {
           const n = nodeMap[node.id];
-         if (!n) return null;
-          const isCtr = node.center;
-          const isHov = hovered === node.id;
-          const isAct = highlight === node.id;
-          const r     = isCtr ? 38 : 24;
+          if (!n) return null;
+          const isCenter = node.center;
+          const isHov    = hovered === node.id;
+          const isLit    = lit === node.id;
+          const isHot    = highlightNode === node.id;
 
           return (
             <motion.g
               key={node.id}
-              style={{ cursor: 'pointer' }}
-              role="button"
-              aria-label={`Navigate to ${node.label}`}
-              tabIndex={0}
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleNodeClick(node);
-                }
-              }}
-              onClick={() => handleNodeClick(node)}
-              onHoverStart={() => { setHovered(node.id); setActive(node.id); }}
+              onClick={() => handleClick(node)}
+              onHoverStart={() => { setHovered(node.id); setActiveId(node.id); }}
               onHoverEnd={() => setHovered(null)}
-              animate={{ y: [0, isCtr ? -4 : -5, 0] }}
-              transition={{
-                duration: 3.5 + i * 0.4,
-                repeat: Infinity,
-                ease: 'easeInOut',
-                delay: i * 0.3,
-              }}
-              whileHover={{ scale: 1.1 }}
+              style={{ cursor:'pointer', outline:'none' }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Go to ${node.label}`}
+              onKeyDown={e => { if(e.key==='Enter'||e.key===' '){e.preventDefault();handleClick(node);}}}
+              animate={{ y:[0, isCenter ? -6 : -5, 0] }}
+              transition={{ duration:3.5+i*0.4, repeat:Infinity, ease:'easeInOut', delay:i*0.3 }}
+              whileHover={{ scale:1.1 }}
+              whileTap={{ scale:0.95 }}
             >
-             {/* Radial glow halo — was motion.circle inside AnimatePresence */}
-<AnimatePresence>
-  {(isHov || isAct) && (
-    <motion.g
-      initial={{ opacity: 0, scale: 0.5 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.5 }}
-      transition={{ duration: 0.3 }}
-      style={{ transformOrigin: `${n.cx}px ${n.cy}px` }}
-    >
-      <circle
-        cx={n.cx} cy={n.cy}
-        r={(r || 24) + 24}
-        fill={`url(#rg-${node.id})`}
-      />
-    </motion.g>
-  )}
-            </AnimatePresence>
+              {/* Pulse ring (for events node + active) */}
+              {(node.pulse || isLit || isHot) && (
+                <motion.circle
+                  cx={n.x} cy={n.y} r={n.r + 10}
+                  fill="none"
+                  stroke={node.color}
+                  strokeWidth={isHot ? 2 : 1.4}
+                  opacity={isHot ? 0.55 : 0.3}
+                  animate={{ r:[n.r+8, n.r+16, n.r+8], opacity:[0.4,0.08,0.4] }}
+                  transition={{ duration:2, repeat:Infinity, ease:'easeInOut' }}
+                />
+              )}
 
-{/* Pulse ring — was motion.circle with animate r */}
-{(isHov || isAct) && (
-  <circle
-    cx={n.cx} cy={n.cy}
-    r={(r || 24) + 8}
-    fill="none"
-    stroke={node.color}
-    strokeWidth="1.5"
-    className={isCtr ? styles.pulseRingLg : styles.pulseRing}
-  />
-)}
+              {/* Glow halo */}
+              {(isHov || isLit || isHot) && (
+                <motion.circle
+                  cx={n.x} cy={n.y} r={n.r + 18}
+                  fill={`${node.color}14`}
+                  initial={{ opacity:0, scale:0.6 }}
+                  animate={{ opacity:1, scale:1 }}
+                  exit={{ opacity:0 }}
+                  transition={{ duration:0.25 }}
+                />
+              )}
 
-              {/* Glass circle body */}
-              <circle
-                cx={n.cx} cy={n.cy}
-                r={r}
-                fill={isCtr ? node.color : 'rgba(255,255,255,0.94)'}
-                stroke={isCtr
-                  ? 'rgba(255,255,255,0.4)'
-                  : (isHov || isAct ? node.color : 'rgba(109,74,255,0.15)')}
-                strokeWidth={isCtr ? 2.5 : 1.5}
-                filter={(isHov || isAct) ? 'url(#nodeShadowHov)' : 'url(#nodeShadow)'}
-                style={{ transition: 'stroke 0.3s, filter 0.3s' }}
-              />
+              {/* Node circle */}
+              {isCenter ? (
+                /* Large center community circle */
+                <circle
+                  cx={n.x} cy={n.y} r={n.r}
+                  fill="url(#commGrad)"
+                  filter={(isHov||isHot) ? 'url(#nlglow)' : undefined}
+                  style={{ transition:'filter 0.3s' }}
+                />
+              ) : (
+                <circle
+                  cx={n.x} cy={n.y} r={n.r}
+                  fill="#fff"
+                  stroke={(isHov||isLit||isHot) ? node.color : 'rgba(0,0,0,0.1)'}
+                  strokeWidth={(isHov||isLit||isHot) ? 2 : 1.5}
+                  filter={(isHov||isHot) ? 'url(#nlglownode)' : undefined}
+                  style={{ transition:'stroke 0.3s, filter 0.3s' }}
+                />
+              )}
 
               {/* Icon */}
               <text
-                x={n.cx}
-                y={n.cy - (isCtr ? 5 : 3)}
+                x={n.x} y={n.y - (isCenter ? 6 : 4)}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fontSize={isCtr ? 18 : 14}
-                style={{ pointerEvents: 'none', userSelect: 'none' }}
-              >{node.icon}</text>
+                fontSize={isCenter ? 18 : 14}
+                style={{ pointerEvents:'none', userSelect:'none' }}
+              >
+                {node.icon}
+              </text>
 
               {/* Label */}
               <text
-                x={n.cx}
-                y={n.cy + (isCtr ? 18 : 14)}
+                x={n.x} y={n.y + (isCenter ? 16 : 13)}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fontSize={isCtr ? 7 : 7}
+                fontSize={isCenter ? 7.5 : 7}
                 fontFamily="Inter, sans-serif"
-                fontWeight="700"
-                fill={isCtr ? 'rgba(255,255,255,0.92)' : (isHov || isAct ? node.color : '#9CA3AF')}
-                letterSpacing="0.8"
-                style={{ transition: 'fill 0.3s', pointerEvents: 'none', userSelect: 'none' }}
-              >{node.label}</text>
+                fontWeight="800"
+                letterSpacing="0.9"
+                fill={isCenter ? 'rgba(255,255,255,0.9)' : ((isHov||isLit||isHot) ? node.color : '#9CA3AF')}
+                style={{ transition:'fill 0.25s', pointerEvents:'none', userSelect:'none' }}
+              >
+                {node.label}
+              </text>
             </motion.g>
           );
         })}

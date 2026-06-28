@@ -1,20 +1,35 @@
+/**
+ * Community.jsx — LocalNest Community Hub
+ *
+ * Schema (source of truth: localnest Supabase project wvprfrzblzhquwyuxuve)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * channels           : id, name, slug, description, icon, sort_order, is_default
+ * community_posts    : id, author_id→profiles, channel_id→channels, channel_slug (denorm),
+ *                      title, body, image_urls[], is_anonymous, is_pinned,
+ *                      like_count, comment_count, created_at, updated_at
+ * community_comments : id, post_id→posts, author_id→profiles, parent_id→comments,
+ *                      body, created_at
+ * community_reactions: id, post_id→posts, user_id→profiles, type, emoji
+ *                      UNIQUE(post_id, user_id)
+ * community_saved    : id, post_id→posts, user_id→profiles
+ *                      UNIQUE(post_id, user_id)
+ * profiles           : id, username, full_name, avatar_url, is_verified, occupation, …
+ *
+ * Triggers (handled server-side, no client workarounds needed):
+ *   trg_sync_post_channel_slug  → copies channel.slug → post.channel_slug on INSERT/UPDATE
+ *   trg_sync_post_body          → mirrors body↔content
+ *   trg_sync_comment_body       → mirrors body↔content
+ *   trg_sync_like_count         → updates like_count on reaction INSERT/DELETE
+ *   trg_sync_comment_count      → updates comment_count on comment INSERT/DELETE
+ *   trg_sync_reaction_type      → mirrors type↔emoji
+ */
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../services/supabase/client';
+import { ChannelIcon, getChannelDisplay } from '../assets/icons/ChannelIcon.jsx';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const CHANNEL_CONFIG = {
-  announcements: { icon: '📢', color: '#D97706', bg: 'rgba(217,119,6,0.1)',   label: 'Announcements' },
-  general:       { icon: '💬', color: '#6B7280', bg: 'rgba(107,114,128,0.1)', label: 'General' },
-  rides:         { icon: '🚗', color: '#0284C7', bg: 'rgba(2,132,199,0.1)',   label: 'Rides' },
-  events:        { icon: '🎉', color: '#7C3AED', bg: 'rgba(124,58,237,0.1)',  label: 'Events' },
-  roommates:     { icon: '🏠', color: '#059669', bg: 'rgba(5,150,105,0.1)',   label: 'Roommates' },
-  'buy-sell':    { icon: '🛍️', color: '#059669', bg: 'rgba(5,150,105,0.1)',   label: 'Buy & Sell' },
-  sports:        { icon: '⚽', color: '#0284C7', bg: 'rgba(2,132,199,0.1)',   label: 'Sports' },
-  'lost-found':  { icon: '🔍', color: '#DC2626', bg: 'rgba(220,38,38,0.1)',   label: 'Lost & Found' },
-  help:          { icon: '🆘', color: '#DC2626', bg: 'rgba(220,38,38,0.1)',   label: 'Help' },
-  jobs:          { icon: '💼', color: '#6D4AFF', bg: 'rgba(109,74,255,0.1)',  label: 'Jobs' },
-};
 
 const SORT_OPTIONS = [
   { key: 'newest',         label: '🕐 Newest' },
@@ -31,9 +46,13 @@ const REACTION_TYPES = [
   { type: 'support',     emoji: '🤝',  label: 'Support' },
 ];
 
+/** Emoji used when rendering a stored reaction type */
+const REACTION_EMOJI = Object.fromEntries(REACTION_TYPES.map(r => [r.type, r.emoji]));
+
 const PAGE_SIZE = 10;
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function timeAgo(ts) {
   const diff = (Date.now() - new Date(ts)) / 1000;
   if (diff < 60)    return `${Math.floor(diff)}s ago`;
@@ -47,10 +66,15 @@ function initials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-// ─── Avatar ───────────────────────────────────────────────────────────────────
+/** Returns { color } for a channel slug — icon rendered via <ChannelIcon> */
+function channelDisplay(slug) {
+  return getChannelDisplay(slug);
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
 function Avatar({ profile, size = 38, onClick }) {
-  const name   = profile?.full_name || profile?.username || 'User';
-  const abbrev = initials(name);
+  const name = profile?.full_name || profile?.username || 'User';
   return (
     <div
       onClick={onClick}
@@ -67,12 +91,11 @@ function Avatar({ profile, size = 38, onClick }) {
     >
       {profile?.avatar_url
         ? <img src={profile.avatar_url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        : abbrev}
+        : initials(name)}
     </div>
   );
 }
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
 function PostSkeleton() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -94,14 +117,111 @@ function PostSkeleton() {
   );
 }
 
-// ─── Create Post Modal ────────────────────────────────────────────────────────
-function CreatePostModal({ onClose, onCreated, channels, currentChannel, user }) {
-  const [channel, setChannel] = useState(currentChannel || 'general');
-  const [title, setTitle]     = useState('');
-  const [content, setContent] = useState('');
-  const [anon, setAnon]       = useState(false);
+function LoadingBar({ visible }) {
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, scaleX: 0 }}
+          animate={{ opacity: 1, scaleX: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.35 }}
+          style={{
+            height: 3, borderRadius: 999,
+            background: 'linear-gradient(90deg, var(--primary), rgba(143,123,255,0.6))',
+            transformOrigin: 'left',
+            marginBottom: 12,
+          }}
+        />
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─── Edit Post Modal ──────────────────────────────────────────────────────────
+
+function EditPostModal({ post, onClose, onUpdated }) {
+  const [title, setTitle]   = useState(post.title);
+  const [body, setBody]     = useState(post.body || '');
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
+  const [error, setError]   = useState('');
+
+  const handleSave = async () => {
+    if (!title.trim()) { setError('Title is required.'); return; }
+    setLoading(true);
+    const { data, error: err } = await supabase
+      .from('community_posts')
+      .update({ title: title.trim(), body: body.trim() || null })
+      .eq('id', post.id)
+      .select('id, title, body, updated_at')
+      .single();
+    setLoading(false);
+    if (err) { setError(err.message); return; }
+    onUpdated(data);
+    onClose();
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,10,40,0.45)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 28, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.97 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        style={{ width: '100%', maxWidth: 520, background: 'rgba(255,255,255,0.97)', border: '1.5px solid rgba(109,74,255,0.15)', borderRadius: 24, padding: 28, boxShadow: '0 32px 80px rgba(109,74,255,0.18)' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>✏️ Edit Post</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-muted)' }}>×</button>
+        </div>
+        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6 }}>Title *</label>
+        <input
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          maxLength={120}
+          style={{ width: '100%', padding: '11px 14px', background: 'rgba(109,74,255,0.04)', border: '1.5px solid rgba(109,74,255,0.15)', borderRadius: 11, fontSize: 14.5, color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box', marginBottom: 14 }}
+          onFocus={e => e.target.style.borderColor = 'rgba(109,74,255,0.4)'}
+          onBlur={e => e.target.style.borderColor = 'rgba(109,74,255,0.15)'}
+        />
+        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6 }}>Description</label>
+        <textarea
+          value={body}
+          onChange={e => setBody(e.target.value)}
+          rows={4}
+          style={{ width: '100%', padding: '11px 14px', background: 'rgba(109,74,255,0.04)', border: '1.5px solid rgba(109,74,255,0.15)', borderRadius: 11, fontSize: 13.5, color: 'var(--text-primary)', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 16 }}
+          onFocus={e => e.target.style.borderColor = 'rgba(109,74,255,0.4)'}
+          onBlur={e => e.target.style.borderColor = 'rgba(109,74,255,0.15)'}
+        />
+        {error && (
+          <div style={{ fontSize: 13, color: '#DC2626', background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.15)', borderRadius: 9, padding: '9px 14px', marginBottom: 14 }}>{error}</div>
+        )}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '11px 0', borderRadius: 11, fontSize: 14, fontWeight: 600, border: '1.5px solid rgba(109,74,255,0.18)', background: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancel</button>
+          <button
+            onClick={handleSave}
+            disabled={loading || !title.trim()}
+            style={{ flex: 2, padding: '11px 0', borderRadius: 11, fontSize: 14, fontWeight: 700, border: 'none', background: 'var(--primary)', color: '#fff', cursor: 'pointer', opacity: loading || !title.trim() ? 0.6 : 1 }}
+          >{loading ? 'Saving…' : 'Save Changes'}</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── Create Post Modal ────────────────────────────────────────────────────────
+
+function CreatePostModal({ onClose, onCreated, channels, currentChannelId, user }) {
+  const defaultId = currentChannelId || channels.find(c => c.is_default)?.id || channels[0]?.id;
+  const [channelId, setChannelId] = useState(defaultId);
+  const [title, setTitle]         = useState('');
+  const [body, setBody]           = useState('');
+  const [anon, setAnon]           = useState(false);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
 
   const handleSubmit = async () => {
     if (!title.trim()) { setError('Title is required.'); return; }
@@ -112,13 +232,17 @@ function CreatePostModal({ onClose, onCreated, channels, currentChannel, user })
     const { data, error: err } = await supabase
       .from('community_posts')
       .insert({
-        channel_slug: channel,
-        user_id:      user.id,
+        channel_id:   channelId,
+        author_id:    user.id,
         title:        title.trim(),
-        content:      content.trim() || null,
+        body:         body.trim() || null,
         is_anonymous: anon,
       })
-      .select(`*, profiles:user_id ( id, full_name, username, avatar_url, is_verified )`)
+      .select(`
+        id, author_id, channel_id, channel_slug, title, body, image_urls,
+        is_anonymous, is_pinned, like_count, comment_count, created_at,
+        profiles:author_id ( id, full_name, username, avatar_url, is_verified, occupation )
+      `)
       .single();
 
     setLoading(false);
@@ -129,15 +253,8 @@ function CreatePostModal({ onClose, onCreated, channels, currentChannel, user })
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(15,10,40,0.45)', backdropFilter: 'blur(6px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 20,
-      }}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,10,40,0.45)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <motion.div
@@ -145,13 +262,7 @@ function CreatePostModal({ onClose, onCreated, channels, currentChannel, user })
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 20, scale: 0.97 }}
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        style={{
-          width: '100%', maxWidth: 560,
-          background: 'rgba(255,255,255,0.97)',
-          border: '1.5px solid rgba(109,74,255,0.15)',
-          borderRadius: 24, padding: 28,
-          boxShadow: '0 32px 80px rgba(109,74,255,0.18)',
-        }}
+        style={{ width: '100%', maxWidth: 560, background: 'rgba(255,255,255,0.97)', border: '1.5px solid rgba(109,74,255,0.15)', borderRadius: 24, padding: 28, boxShadow: '0 32px 80px rgba(109,74,255,0.18)' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 700, color: 'var(--text-primary)' }}>✏️ Create Post</div>
@@ -161,13 +272,14 @@ function CreatePostModal({ onClose, onCreated, channels, currentChannel, user })
         <div style={{ marginBottom: 14 }}>
           <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6 }}>Channel</label>
           <select
-            value={channel}
-            onChange={e => setChannel(e.target.value)}
+            value={channelId || ''}
+            onChange={e => setChannelId(Number(e.target.value))}
             style={{ width: '100%', padding: '10px 14px', background: 'rgba(109,74,255,0.04)', border: '1.5px solid rgba(109,74,255,0.15)', borderRadius: 11, fontSize: 14, color: 'var(--text-primary)', outline: 'none' }}
           >
-            {channels.map(ch => (
-              <option key={ch.slug} value={ch.slug}>{CHANNEL_CONFIG[ch.slug]?.icon} {ch.name}</option>
-            ))}
+            {channels.map(ch => {
+              const { color } = getChannelDisplay(ch.slug);
+              return <option key={ch.id} value={ch.id}>{ch.name}</option>;
+            })}
           </select>
         </div>
 
@@ -188,8 +300,8 @@ function CreatePostModal({ onClose, onCreated, channels, currentChannel, user })
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6 }}>Description</label>
           <textarea
-            value={content}
-            onChange={e => setContent(e.target.value)}
+            value={body}
+            onChange={e => setBody(e.target.value)}
             placeholder="Add more details, context, or links…"
             rows={4}
             style={{ width: '100%', padding: '11px 14px', background: 'rgba(109,74,255,0.04)', border: '1.5px solid rgba(109,74,255,0.15)', borderRadius: 11, fontSize: 13.5, color: 'var(--text-primary)', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box', fontFamily: 'inherit' }}
@@ -201,7 +313,7 @@ function CreatePostModal({ onClose, onCreated, channels, currentChannel, user })
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, cursor: 'pointer' }}>
           <div
             onClick={() => setAnon(a => !a)}
-            style={{ width: 42, height: 24, borderRadius: 999, background: anon ? 'var(--primary)' : 'rgba(109,74,255,0.12)', position: 'relative', transition: 'background 0.22s', cursor: 'pointer' }}
+            style={{ width: 42, height: 24, borderRadius: 999, background: anon ? 'var(--primary)' : 'rgba(109,74,255,0.12)', position: 'relative', transition: 'background 0.22s', cursor: 'pointer', flexShrink: 0 }}
           >
             <div style={{ position: 'absolute', top: 3, left: anon ? 21 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.18)', transition: 'left 0.22s' }} />
           </div>
@@ -209,9 +321,7 @@ function CreatePostModal({ onClose, onCreated, channels, currentChannel, user })
         </label>
 
         {error && (
-          <div style={{ fontSize: 13, color: '#DC2626', background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.15)', borderRadius: 9, padding: '9px 14px', marginBottom: 14 }}>
-            {error}
-          </div>
+          <div style={{ fontSize: 13, color: '#DC2626', background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.15)', borderRadius: 9, padding: '9px 14px', marginBottom: 14 }}>{error}</div>
         )}
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -227,7 +337,8 @@ function CreatePostModal({ onClose, onCreated, channels, currentChannel, user })
   );
 }
 
-// ─── Comment Thread ───────────────────────────────────────────────────────────
+// ─── Comment Thread ────────────────────────────────────────────────────────────
+
 function CommentThread({ postId, user }) {
   const [comments, setComments]     = useState([]);
   const [loading, setLoading]       = useState(true);
@@ -238,7 +349,10 @@ function CommentThread({ postId, user }) {
   const fetchComments = useCallback(async () => {
     const { data } = await supabase
       .from('community_comments')
-      .select(`*, profiles:user_id ( full_name, username, avatar_url, is_verified )`)
+      .select(`
+        id, post_id, parent_id, author_id, body, created_at,
+        profiles:author_id ( id, full_name, username, avatar_url, is_verified )
+      `)
       .eq('post_id', postId)
       .order('created_at', { ascending: true });
     setComments(data || []);
@@ -247,10 +361,11 @@ function CommentThread({ postId, user }) {
 
   useEffect(() => {
     fetchComments();
-    const channel = supabase.channel(`comments:${postId}`)
+    const ch = supabase
+      .channel(`comments:${postId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'community_comments', filter: `post_id=eq.${postId}` }, fetchComments)
       .subscribe();
-    return () => supabase.removeChannel(channel);
+    return () => supabase.removeChannel(ch);
   }, [postId, fetchComments]);
 
   const submit = async () => {
@@ -258,13 +373,18 @@ function CommentThread({ postId, user }) {
     setSubmitting(true);
     await supabase.from('community_comments').insert({
       post_id:   postId,
-      parent_id: replyTo,
-      user_id:   user.id,
-      content:   text.trim(),
+      author_id: user.id,
+      parent_id: replyTo || null,
+      body:      text.trim(),
     });
     setText('');
     setReplyTo(null);
     setSubmitting(false);
+  };
+
+  const handleDelete = async (commentId) => {
+    if (!window.confirm('Delete this comment?')) return;
+    await supabase.from('community_comments').delete().eq('id', commentId);
   };
 
   const roots   = comments.filter(c => !c.parent_id);
@@ -275,207 +395,176 @@ function CommentThread({ postId, user }) {
       <div style={{ display: 'flex', gap: 10, padding: '10px 0', borderTop: depth === 0 ? '1px solid rgba(109,74,255,0.06)' : 'none' }}>
         <Avatar profile={c.profiles} size={30} />
         <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}>{c.profiles?.full_name || 'User'}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}>{c.profiles?.full_name || c.profiles?.username || 'User'}</span>
+            {c.profiles?.is_verified && <span title="Verified" style={{ fontSize: 11, color: '#0284C7' }}>✓</span>}
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{timeAgo(c.created_at)}</span>
-          </div>
-          <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.55 }}>{c.content}</div>
-          {user && (
-            <button
-              onClick={() => setReplyTo(replyTo === c.id ? null : c.id)}
-              style={{ fontSize: 11.5, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4, padding: 0, fontWeight: 500 }}
-            >{replyTo === c.id ? 'Cancel' : '↩ Reply'}</button>
-          )}
-          {replyTo === c.id && (
-            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-              <input
-                autoFocus
-                value={text}
-                onChange={e => setText(e.target.value)}
-                placeholder={`Reply to ${c.profiles?.full_name || 'User'}…`}
-                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && submit()}
-                style={{ flex: 1, padding: '8px 12px', borderRadius: 9, border: '1.5px solid rgba(109,74,255,0.2)', fontSize: 13, outline: 'none', background: 'rgba(109,74,255,0.03)' }}
-              />
-              <button onClick={submit} disabled={submitting} style={{ padding: '8px 14px', borderRadius: 9, background: 'var(--primary)', color: '#fff', border: 'none', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
-                {submitting ? '…' : 'Reply'}
+            {user && c.author_id === user.id && (
+              <button onClick={() => handleDelete(c.id)} style={{ fontSize: 11, color: '#DC2626', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px' }}>Delete</button>
+            )}
+            {user && depth === 0 && (
+              <button onClick={() => setReplyTo(replyTo === c.id ? null : c.id)} style={{ fontSize: 11, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px' }}>
+                {replyTo === c.id ? 'Cancel' : 'Reply'}
               </button>
-            </div>
-          )}
+            )}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.55 }}>{c.body}</div>
         </div>
       </div>
+      {replyTo === c.id && user && (
+        <div style={{ marginLeft: 40, marginBottom: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              value={text}
+              onChange={e => setText(e.target.value)}
+              placeholder={`Replying to ${c.profiles?.full_name || 'this comment'}…`}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && submit()}
+              style={{ flex: 1, padding: '8px 12px', background: 'rgba(109,74,255,0.04)', border: '1.5px solid rgba(109,74,255,0.18)', borderRadius: 10, fontSize: 13, color: 'var(--text-primary)', outline: 'none' }}
+            />
+            <button onClick={submit} disabled={submitting || !text.trim()} style={{ padding: '8px 14px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: submitting || !text.trim() ? 0.6 : 1 }}>
+              {submitting ? '…' : 'Reply'}
+            </button>
+          </div>
+        </div>
+      )}
       {replies.filter(r => r.parent_id === c.id).map(r => renderComment(r, depth + 1))}
     </div>
   );
 
+  if (loading) return <div style={{ padding: '16px 20px', fontSize: 13, color: 'var(--text-muted)' }}>Loading comments…</div>;
+
   return (
-    <div style={{ padding: '4px 22px 18px' }}>
-      {loading
-        ? <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0' }}>Loading comments…</div>
-        : <div>{roots.map(c => renderComment(c))}</div>
-      }
+    <div style={{ padding: '12px 22px 16px' }}>
+      {comments.length === 0 && (
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '14px 0' }}>No comments yet — be the first!</div>
+      )}
+      {roots.map(c => renderComment(c))}
       {user && !replyTo && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+        <div style={{ display: 'flex', gap: 10, marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(109,74,255,0.06)' }}>
           <Avatar profile={null} size={30} />
-          <input
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="Add a comment…"
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && submit()}
-            style={{ flex: 1, padding: '9px 14px', borderRadius: 11, border: '1.5px solid rgba(109,74,255,0.15)', fontSize: 13.5, outline: 'none', background: 'rgba(109,74,255,0.03)' }}
-            onFocus={e => e.target.style.borderColor = 'rgba(109,74,255,0.35)'}
-            onBlur={e => e.target.style.borderColor = 'rgba(109,74,255,0.15)'}
-          />
-          <button
-            onClick={submit}
-            disabled={submitting || !text.trim()}
-            style={{ padding: '9px 16px', borderRadius: 11, background: text.trim() ? 'var(--primary)' : 'rgba(109,74,255,0.12)', color: text.trim() ? '#fff' : 'var(--text-muted)', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
-          >{submitting ? '…' : 'Send'}</button>
+          <div style={{ flex: 1, display: 'flex', gap: 8 }}>
+            <input
+              value={text}
+              onChange={e => setText(e.target.value)}
+              placeholder="Add a comment…"
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && submit()}
+              style={{ flex: 1, padding: '8px 12px', background: 'rgba(109,74,255,0.04)', border: '1.5px solid rgba(109,74,255,0.18)', borderRadius: 10, fontSize: 13, color: 'var(--text-primary)', outline: 'none' }}
+              onFocus={e => e.target.style.borderColor = 'rgba(109,74,255,0.38)'}
+              onBlur={e => e.target.style.borderColor = 'rgba(109,74,255,0.18)'}
+            />
+            <button onClick={submit} disabled={submitting || !text.trim()} style={{ padding: '8px 14px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: submitting || !text.trim() ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+              {submitting ? '…' : 'Post'}
+            </button>
+          </div>
         </div>
       )}
-      {!user && <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '10px 0', fontStyle: 'italic' }}>Sign in to comment</div>}
+      {!user && (
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '10px 0 2px' }}>Sign in to comment</div>
+      )}
     </div>
   );
 }
 
 // ─── Post Card ────────────────────────────────────────────────────────────────
-// FIX: Removed `initial/exit` animation props so cards don't re-animate on
-// every filter change. A simple CSS opacity transition handles hover. The
-// `whileHover` lift is kept because it only triggers on user intent.
-function PostCard({ post, user, userReaction, isSaved, onReact, onSave, onDelete }) {
-  const cfg         = CHANNEL_CONFIG[post.channel_slug] || CHANNEL_CONFIG.general;
-  const [expanded, setExpanded]           = useState(false);
+
+function PostCard({ post, user, channels, userReaction, isSaved, onReact, onSave, onDelete, onEdit }) {
   const [showComments, setShowComments]   = useState(false);
   const [showReactions, setShowReactions] = useState(false);
-  const [showProfile, setShowProfile]     = useState(false);
-  const isOwner    = user && post.user_id === user.id;
-  const profile    = post.profiles;
-  const displayName = post.is_anonymous ? 'Anonymous' : (profile?.full_name || profile?.username || 'Resident');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const reactRef = useRef(null);
+
+  const isOwner = user && post.author_id === user.id;
+  const isAnon  = post.is_anonymous;
+  const profile = isAnon ? null : post.profiles;
+
+  const channel = channels.find(c => c.id === post.channel_id);
+  const { color: dispColor } = getChannelDisplay(channel?.slug || post.channel_slug || '');
+
+  useEffect(() => {
+    if (!showReactions) return;
+    const handler = e => { if (reactRef.current && !reactRef.current.contains(e.target)) setShowReactions(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showReactions]);
 
   return (
-    // FIX: No `initial` / `exit` / `transition` — avoids re-animating stale
-    // cards when the list is swapped. Only `whileHover` remains so the lift
-    // effect still works on intent.
     <motion.div
-      whileHover={{ y: -3, boxShadow: '0 14px 44px rgba(109,74,255,0.12)' }}
-      style={{
-        background: 'rgba(255,255,255,0.86)',
-        border: '1.5px solid rgba(255,255,255,0.72)',
-        borderRadius: 20,
-        overflow: 'hidden',
-        backdropFilter: 'blur(18px)',
-        boxShadow: '0 4px 20px rgba(109,74,255,0.07)',
-        position: 'relative',
-        // Subtle CSS transition instead of JS animation — zero reflow cost
-        transition: 'box-shadow 0.22s ease, transform 0.22s ease',
-      }}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      layout
+      style={{ background: 'rgba(255,255,255,0.86)', border: post.is_pinned ? '1.5px solid rgba(109,74,255,0.28)' : '1.5px solid rgba(255,255,255,0.72)', borderRadius: 20, backdropFilter: 'blur(16px)', boxShadow: '0 4px 18px rgba(109,74,255,0.06)', overflow: 'hidden' }}
     >
-      {post.images?.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: post.images.length > 1 ? '1fr 1fr' : '1fr', height: post.images.length > 1 ? 180 : 220, overflow: 'hidden' }}>
-          {post.images.slice(0, 2).map((img, i) => (
-            <img key={i} src={img} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ))}
-        </div>
-      )}
-
-      <div style={{ padding: '18px 22px 0' }}>
+      <div style={{ padding: 22 }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 13 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            {!post.is_anonymous
-              ? <Avatar profile={profile} size={38} onClick={() => setShowProfile(s => !s)} />
-              : <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(107,114,128,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🕵️</div>
+            {isAnon
+              ? <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(109,74,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>👤</div>
+              : <Avatar profile={profile} size={38} />
             }
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span
-                  style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', cursor: !post.is_anonymous ? 'pointer' : 'default' }}
-                  onClick={() => !post.is_anonymous && setShowProfile(s => !s)}
-                >{displayName}</span>
-                {!post.is_anonymous && profile?.is_verified && (
-                  <span title="Verified Resident" style={{ fontSize: 10, background: 'rgba(109,74,255,0.1)', color: 'var(--primary)', borderRadius: '50%', width: 16, height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>✓</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {isAnon ? 'Anonymous' : (profile?.full_name || profile?.username || 'User')}
+                </span>
+                {!isAnon && profile?.is_verified && <span title="Verified" style={{ fontSize: 11, color: '#0284C7', fontWeight: 700 }}>✓</span>}
+                {!isAnon && profile?.occupation && (
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'rgba(109,74,255,0.06)', padding: '1px 7px', borderRadius: 999 }}>{profile.occupation}</span>
                 )}
               </div>
-              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{timeAgo(post.created_at)}</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 11.5, color: 'var(--text-muted)' }}>
+                <span>{timeAgo(post.created_at)}</span>
+                {post.is_pinned && <span style={{ color: '#D97706', fontWeight: 600 }}>📌 Pinned</span>}
+                {/* 3D channel icon inline */}
+                <span style={{ color: dispColor, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <ChannelIcon slug={channel?.slug || post.channel_slug || ''} size={14} />
+                  {channel?.name || post.channel_slug}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 999, color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.color}22` }}>
-              {cfg.icon} {cfg.label}
-            </span>
+          {user && (
             <button
               onClick={() => onSave(post.id, isSaved)}
               title={isSaved ? 'Unsave' : 'Save'}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 17, color: isSaved ? '#7C3AED' : '#9CA3AF', transition: 'transform 0.18s' }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
-              onMouseLeave={e => e.currentTarget.style.transform = ''}
-            >🔖</button>
-          </div>
-        </div>
-
-        {/* Mini profile popup — AnimatePresence is fine here (user-triggered, not filter-triggered) */}
-        <AnimatePresence>
-          {showProfile && !post.is_anonymous && (
-            <motion.div
-              initial={{ opacity: 0, y: -6, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              style={{ background: 'rgba(255,255,255,0.97)', border: '1.5px solid rgba(109,74,255,0.15)', borderRadius: 16, padding: '16px 18px', boxShadow: '0 12px 40px rgba(109,74,255,0.14)', marginBottom: 14, position: 'relative' }}
+              style={{ background: isSaved ? 'rgba(109,74,255,0.08)' : 'none', border: '1px solid transparent', borderRadius: 8, width: 34, height: 34, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', flexShrink: 0 }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(109,74,255,0.08)'}
+              onMouseLeave={e => { if (!isSaved) e.currentTarget.style.background = 'none'; }}
             >
-              <button onClick={() => setShowProfile(false)} style={{ position: 'absolute', top: 10, right: 12, background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', color: 'var(--text-muted)' }}>×</button>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <Avatar profile={profile} size={44} />
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{profile?.full_name || 'Resident'}</div>
-                  {profile?.occupation && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{profile.occupation}</div>}
-                  {profile?.is_verified && <span style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600 }}>✓ Verified Resident</span>}
-                </div>
-              </div>
-            </motion.div>
+              {/* Bookmark icon SVG */}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill={isSaved ? '#6D4AFF' : 'none'} stroke={isSaved ? '#6D4AFF' : '#9CA3AF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+            </button>
           )}
-        </AnimatePresence>
+        </div>
 
         {/* Content */}
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 660, color: 'var(--text-primary)', marginBottom: 8, lineHeight: 1.4 }}>
-          {post.title}
-        </div>
-        {post.content && (
-          <>
-            <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.62, marginBottom: 11, ...(expanded ? {} : { overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }) }}>
-              {post.content}
-            </div>
-            {post.content.length > 160 && (
-              <button onClick={() => setExpanded(e => !e)} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', marginBottom: 10, padding: 0 }}>
-                {expanded ? 'Show less' : 'Read more'}
-              </button>
-            )}
-          </>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, lineHeight: 1.35 }}>{post.title}</div>
+        {post.body && (
+          <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: 12 }}>{post.body}</div>
         )}
-      </div>
 
-      {/* Footer */}
-      <div style={{ padding: '0 22px 18px' }}>
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center', paddingTop: 12, borderTop: '1px solid rgba(109,74,255,0.07)', position: 'relative' }}>
+        {post.image_urls && post.image_urls.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            {post.image_urls.map((url, i) => (
+              <img key={i} src={url} alt="" style={{ maxHeight: 220, maxWidth: '100%', borderRadius: 12, objectFit: 'cover', border: '1px solid rgba(109,74,255,0.1)', cursor: 'pointer' }} onClick={() => window.open(url, '_blank')} />
+            ))}
+          </div>
+        )}
 
-          {/* Reaction button */}
-          <div style={{ position: 'relative' }}>
+        {/* Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', borderTop: '1px solid rgba(109,74,255,0.06)', paddingTop: 12, marginTop: 4 }}>
+          <div ref={reactRef} style={{ position: 'relative' }}>
             <button
-              onClick={() => setShowReactions(s => !s)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                background: userReaction ? 'rgba(109,74,255,0.08)' : 'none',
-                border: userReaction ? '1px solid rgba(109,74,255,0.18)' : '1px solid transparent',
-                color: userReaction ? 'var(--primary)' : 'var(--text-muted)',
-                borderRadius: 8, padding: '6px 12px', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s',
-              }}
+              onClick={() => user ? setShowReactions(s => !s) : undefined}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, background: userReaction ? 'rgba(109,74,255,0.08)' : 'none', border: userReaction ? '1px solid rgba(109,74,255,0.18)' : '1px solid transparent', color: userReaction ? 'var(--primary)' : 'var(--text-muted)', borderRadius: 8, padding: '6px 12px', fontSize: 13, fontWeight: 500, cursor: user ? 'pointer' : 'default', transition: 'all 0.2s' }}
             >
-              <span style={{ fontSize: 15 }}>
-                {userReaction ? REACTION_TYPES.find(r => r.type === userReaction)?.emoji : '🤍'}
-              </span>
-              {post.like_count || 0}
+              <span style={{ fontSize: 15 }}>{userReaction ? (REACTION_EMOJI[userReaction] || '❤️') : '🤍'}</span>
+              {post.like_count > 0 && post.like_count}
             </button>
-
-            {/* Reaction picker — user-triggered, AnimatePresence is fine */}
             <AnimatePresence>
               {showReactions && (
                 <motion.div
@@ -487,7 +576,7 @@ function PostCard({ post, user, userReaction, isSaved, onReact, onSave, onDelete
                   {REACTION_TYPES.map(r => (
                     <button
                       key={r.type}
-                      onClick={() => { onReact(post.id, r.type, userReaction); setShowReactions(false); }}
+                      onClick={() => { onReact(post.id, r.type); setShowReactions(false); }}
                       title={r.label}
                       style={{ background: userReaction === r.type ? 'rgba(109,74,255,0.1)' : 'none', border: userReaction === r.type ? '1.5px solid rgba(109,74,255,0.25)' : '1.5px solid transparent', borderRadius: 9, width: 38, height: 38, fontSize: 20, cursor: 'pointer', transition: 'transform 0.15s' }}
                       onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.25)'}
@@ -499,15 +588,12 @@ function PostCard({ post, user, userReaction, isSaved, onReact, onSave, onDelete
             </AnimatePresence>
           </div>
 
-          {/* Comments */}
-          <button
-            onClick={() => setShowComments(s => !s)}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, background: showComments ? 'rgba(109,74,255,0.06)' : 'none', border: '1px solid transparent', color: showComments ? 'var(--primary)' : 'var(--text-muted)', borderRadius: 8, padding: '6px 12px', fontSize: 13, cursor: 'pointer', transition: 'all 0.2s' }}
-          ><span style={{ fontSize: 15 }}>💬</span>{post.comment_count || 0}</button>
+          <button onClick={() => setShowComments(s => !s)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: showComments ? 'rgba(109,74,255,0.06)' : 'none', border: '1px solid transparent', color: showComments ? 'var(--primary)' : 'var(--text-muted)', borderRadius: 8, padding: '6px 12px', fontSize: 13, cursor: 'pointer', transition: 'all 0.2s' }}>
+            <span style={{ fontSize: 15 }}>💬</span>{post.comment_count > 0 && post.comment_count}
+          </button>
 
-          {/* Share */}
           <button
-            onClick={() => navigator.clipboard.writeText(window.location.href)}
+            onClick={() => { navigator.clipboard.writeText(window.location.href); }}
             style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: '1px solid transparent', color: 'var(--text-muted)', borderRadius: 8, padding: '6px 12px', fontSize: 13, cursor: 'pointer', transition: 'all 0.2s' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(109,74,255,0.06)'; e.currentTarget.style.color = 'var(--primary)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)'; }}
@@ -515,38 +601,35 @@ function PostCard({ post, user, userReaction, isSaved, onReact, onSave, onDelete
 
           {isOwner && (
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-              <button
-                onClick={() => onDelete(post.id)}
-                style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: '1px solid rgba(220,38,38,0.15)', color: '#DC2626', borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer', transition: 'all 0.2s' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(220,38,38,0.06)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'none'}
-              >🗑 Delete</button>
+              <button onClick={() => setShowEditModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: '1px solid rgba(109,74,255,0.18)', color: 'var(--primary)', borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(109,74,255,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>✏️ Edit</button>
+              <button onClick={() => onDelete(post.id)} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: '1px solid rgba(220,38,38,0.15)', color: '#DC2626', borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(220,38,38,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>🗑 Delete</button>
             </div>
           )}
         </div>
-
-        {/* Comment thread — user-triggered, AnimatePresence is fine */}
-        <AnimatePresence>
-          {showComments && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              style={{ overflow: 'hidden', marginLeft: -22, marginRight: -22 }}
-            >
-              <div style={{ borderTop: '1px solid rgba(109,74,255,0.07)', background: 'rgba(109,74,255,0.025)', marginTop: 10 }}>
-                <CommentThread postId={post.id} user={user} />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {showComments && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden' }}>
+            <div style={{ borderTop: '1px solid rgba(109,74,255,0.07)', background: 'rgba(109,74,255,0.025)' }}>
+              <CommentThread postId={post.id} user={user} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showEditModal && (
+          <EditPostModal post={post} onClose={() => setShowEditModal(false)} onUpdated={updated => onEdit(post.id, updated)} />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
 
 // ─── Right Sidebar ─────────────────────────────────────────────────────────────
-function RightSidebar({ stats, trendingPosts }) {
+
+function RightSidebar({ stats, trendingPosts, channels }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ background: 'rgba(255,255,255,0.82)', border: '1.5px solid rgba(255,255,255,0.72)', borderRadius: 18, padding: '18px 20px', backdropFilter: 'blur(16px)', boxShadow: '0 4px 18px rgba(109,74,255,0.06)' }}>
@@ -572,14 +655,16 @@ function RightSidebar({ stats, trendingPosts }) {
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 14 }}>🔥 Trending</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
             {trendingPosts.slice(0, 5).map((p, i) => {
-              const cfg = CHANNEL_CONFIG[p.channel_slug] || CHANNEL_CONFIG.general;
+              const ch = channels.find(c => c.id === p.channel_id);
+              const { color } = getChannelDisplay(ch?.slug || p.channel_slug || '');
               return (
                 <div key={p.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <div style={{ fontSize: 16, fontWeight: 700, color: 'rgba(109,74,255,0.3)', fontFamily: 'var(--font-display)', minWidth: 18, lineHeight: 1.3 }}>{i + 1}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.35, marginBottom: 3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p.title}</div>
-                    <div style={{ display: 'flex', gap: 8, fontSize: 11, color: 'var(--text-muted)' }}>
-                      <span>{cfg.icon} {cfg.label}</span>
+                    <div style={{ display: 'flex', gap: 8, fontSize: 11, color: 'var(--text-muted)', alignItems: 'center' }}>
+                      <ChannelIcon slug={ch?.slug || p.channel_slug || ''} size={12} />
+                      <span>{ch?.name || p.channel_slug}</span>
                       <span>❤️ {p.like_count}</span>
                     </div>
                   </div>
@@ -602,225 +687,159 @@ function RightSidebar({ stats, trendingPosts }) {
   );
 }
 
-// ─── Inline loading bar ───────────────────────────────────────────────────────
-// FIX: A thin top-of-feed bar signals "refreshing" without hiding content.
-function LoadingBar({ visible }) {
-  return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          initial={{ opacity: 0, scaleX: 0 }}
-          animate={{ opacity: 1, scaleX: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.35 }}
-          style={{
-            height: 3, borderRadius: 999,
-            background: 'linear-gradient(90deg, var(--primary), rgba(143,123,255,0.6))',
-            transformOrigin: 'left',
-            marginBottom: 12,
-          }}
-        />
-      )}
-    </AnimatePresence>
-  );
-}
-
 // ─── Main Page ─────────────────────────────────────────────────────────────────
+
 export default function Community({ onNavigate }) {
   const [user, setUser] = useState(null);
-
-  const [channels, setChannels]           = useState([]);
-  const [activeChannel, setActiveChannel] = useState('general');
-
-  const [posts, setPosts]     = useState([]);
-  // FIX: separate "initial load" flag from "background refresh" flag so we
-  // only show the full skeleton on the very first load, not on every filter
-  // change. Subsequent fetches just show the LoadingBar.
-  const [initialLoad, setInitialLoad]   = useState(true);
-  const [refreshing, setRefreshing]     = useState(false);
-  const [hasMore, setHasMore]           = useState(true);
-  const [page, setPage]                 = useState(0);
-
+  const [channels, setChannels]         = useState([]);
+  const [activeChannelId, setActiveChannelId] = useState(null);
+  const [posts, setPosts]             = useState([]);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [refreshing, setRefreshing]   = useState(false);
+  const [hasMore, setHasMore]         = useState(true);
+  const [page, setPage]               = useState(0);
   const [sort, setSort]               = useState('newest');
   const [search, setSearch]           = useState('');
   const [searchDraft, setSearchDraft] = useState('');
-
   const [showModal, setShowModal]         = useState(false);
   const [showMobileNav, setShowMobileNav] = useState(false);
-
   const [userReactions, setUserReactions] = useState({});
   const [savedPosts, setSavedPosts]       = useState({});
-
-  const [stats, setStats]         = useState({});
+  const [stats, setStats]          = useState({});
   const [trendingPosts, setTrending] = useState([]);
-
   const loaderRef = useRef(null);
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data?.user || null));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setUser(s?.user || null));
     return () => subscription?.unsubscribe();
   }, []);
 
-  // ── Channels ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    supabase.from('channels').select('*').order('sort_order').then(({ data }) => setChannels(data || []));
+    supabase
+      .from('channels')
+      .select('id, name, slug, description, icon, sort_order, is_default')
+      .order('sort_order')
+      .then(({ data }) => {
+        const chs = data || [];
+        setChannels(chs);
+        if (chs.length > 0 && !activeChannelId) {
+          const def = chs.find(c => c.is_default) || chs[0];
+          setActiveChannelId(def.id);
+        }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
   const fetchStats = useCallback(async () => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const [{ count: totalPosts }, { count: postsToday }, { count: channels }] = await Promise.all([
+    const [{ count: totalPosts }, { count: postsToday }, { count: channelCount }] = await Promise.all([
       supabase.from('community_posts').select('*', { count: 'exact', head: true }),
       supabase.from('community_posts').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
       supabase.from('channels').select('*', { count: 'exact', head: true }),
     ]);
-    setStats({ totalPosts, postsToday, channels, activeUsers: Math.max(1, Math.floor((totalPosts || 0) * 0.4)) });
+    setStats({ totalPosts, postsToday, channels: channelCount, activeUsers: Math.max(1, Math.floor((totalPosts || 0) * 0.4)) });
   }, []);
 
-  // ── Trending ──────────────────────────────────────────────────────────────
   const fetchTrending = useCallback(async () => {
-    const { data } = await supabase.from('community_posts')
-      .select('id, title, channel_slug, like_count, comment_count')
-      .order('like_count', { ascending: false })
-      .limit(5);
+    const { data } = await supabase.from('community_posts').select('id, title, channel_id, channel_slug, like_count').order('like_count', { ascending: false }).limit(5);
     setTrending(data || []);
   }, []);
 
   useEffect(() => { fetchStats(); fetchTrending(); }, [fetchStats, fetchTrending]);
 
-  // ── Posts query ───────────────────────────────────────────────────────────
   const buildQuery = useCallback((fromIdx) => {
-    const sanitizedSearch = search ? search.replace(/[\u0000-\u001F\u007F,()]/g, ' ').trim() : '';
+    if (!activeChannelId) return null;
     let q = supabase
       .from('community_posts')
-      .select('id,channel_slug,user_id,title,content,images,is_anonymous,is_pinned,like_count,comment_count,created_at,profiles:user_id(id,full_name,username,avatar_url,is_verified,occupation)')
-      .eq('channel_slug', activeChannel);
-
-    if (sanitizedSearch) q = q.or(`title.ilike.%${sanitizedSearch}%,content.ilike.%${sanitizedSearch}%`);
-
-    if (sort === 'newest')           q = q.order('created_at', { ascending: false });
-    else if (sort === 'most_liked')  q = q.order('like_count', { ascending: false });
+      .select(`id, author_id, channel_id, channel_slug, title, body, image_urls, is_anonymous, is_pinned, like_count, comment_count, created_at, updated_at, profiles:author_id ( id, full_name, username, avatar_url, is_verified, occupation )`)
+      .eq('channel_id', activeChannelId);
+    if (search) {
+      const s = search.replace(/[%_\\]/g, '\\$&');
+      q = q.or(`title.ilike.%${s}%,body.ilike.%${s}%`);
+    }
+    if (sort === 'newest')              q = q.order('is_pinned', { ascending: false }).order('created_at', { ascending: false });
+    else if (sort === 'most_liked')     q = q.order('like_count', { ascending: false });
     else if (sort === 'most_commented') q = q.order('comment_count', { ascending: false });
-    else if (sort === 'trending')    q = q.order('like_count', { ascending: false }).order('comment_count', { ascending: false });
-
+    else if (sort === 'trending')       q = q.order('like_count', { ascending: false }).order('comment_count', { ascending: false });
     return q.range(fromIdx, fromIdx + PAGE_SIZE - 1);
-  }, [activeChannel, search, sort]);
+  }, [activeChannelId, search, sort]);
 
   const fetchPosts = useCallback(async (reset = false) => {
     const fromIdx = reset ? 0 : page * PAGE_SIZE;
-
-    // FIX: On reset (filter change) show a non-blocking refresh indicator
-    // instead of hiding the current posts. Only the very first ever load
-    // uses the full skeleton.
-    if (reset) {
-      setRefreshing(true);
-    }
-
-    const { data, error } = await buildQuery(fromIdx);
-
+    if (reset) { setRefreshing(true); setInitialLoad(true); }
+    const q = buildQuery(fromIdx);
+    if (!q) return;
+    const { data, error } = await q;
     if (!error) {
       const incoming = data || [];
-      if (reset) {
-        // Replace posts atomically — one state update, no blank frame
-        setPosts(incoming);
-        setPage(1);
-      } else {
-        setPosts(prev => [...prev, ...incoming]);
-        setPage(p => p + 1);
-      }
+      if (reset) { setPosts(incoming); setPage(1); }
+      else { setPosts(prev => { const ids = new Set(prev.map(p => p.id)); return [...prev, ...incoming.filter(p => !ids.has(p.id))]; }); setPage(p => p + 1); }
       setHasMore(incoming.length === PAGE_SIZE);
     }
-
     setInitialLoad(false);
     setRefreshing(false);
   }, [buildQuery, page]);
 
-  // FIX: Do NOT call setPosts([]) before the new data arrives. Instead,
-  // just kick off the fetch — posts stay visible during the network round-trip.
   useEffect(() => {
-    setPage(0);
-    setHasMore(true);
-    fetchPosts(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeChannel, sort, search]);
+    if (!activeChannelId) return;
+    setPage(0); setHasMore(true); setPosts([]); setInitialLoad(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChannelId, sort, search]);
 
-  // ── User reactions & saves ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!activeChannelId || page !== 0) return;
+    fetchPosts(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChannelId, sort, search, page]);
+
   useEffect(() => {
     if (!user || posts.length === 0) return;
     const ids = posts.map(p => p.id);
-
     supabase.from('community_reactions').select('post_id, type').eq('user_id', user.id).in('post_id', ids)
-      .then(({ data }) => {
-        const map = {};
-        (data || []).forEach(r => { map[r.post_id] = r.type; });
-        setUserReactions(prev => ({ ...prev, ...map }));
-      });
-
+      .then(({ data }) => { const map = {}; (data || []).forEach(r => { map[r.post_id] = r.type; }); setUserReactions(prev => ({ ...prev, ...map })); });
     supabase.from('community_saved').select('post_id').eq('user_id', user.id).in('post_id', ids)
-      .then(({ data }) => {
-        const map = {};
-        (data || []).forEach(s => { map[s.post_id] = true; });
-        setSavedPosts(prev => ({ ...prev, ...map }));
-      });
+      .then(({ data }) => { const map = {}; (data || []).forEach(s => { map[s.post_id] = true; }); setSavedPosts(prev => ({ ...prev, ...map })); });
   }, [user, posts]);
 
-  // ── Realtime ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    const channel = supabase
-      .channel(`community:${activeChannel}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_posts', filter: `channel_slug=eq.${activeChannel}` }, async (payload) => {
-        // Skip if this post was created by the current user — already added locally
-        if (user && payload.new.user_id === user.id) { fetchStats(); return; }
-        const { data } = await supabase
-          .from('community_posts')
-          .select(`*, profiles:user_id ( id, full_name, username, avatar_url, is_verified, occupation )`)
-          .eq('id', payload.new.id)
-          .single();
+    if (!activeChannelId) return;
+    const ch = supabase.channel(`community:channel:${activeChannelId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_posts', filter: `channel_id=eq.${activeChannelId}` }, async (payload) => {
+        if (user && payload.new.author_id === user.id) { fetchStats(); return; }
+        const { data } = await supabase.from('community_posts').select(`id, author_id, channel_id, channel_slug, title, body, image_urls, is_anonymous, is_pinned, like_count, comment_count, created_at, updated_at, profiles:author_id ( id, full_name, username, avatar_url, is_verified, occupation )`).eq('id', payload.new.id).single();
         if (data) setPosts(prev => prev.some(p => p.id === data.id) ? prev : [data, ...prev]);
         fetchStats();
       })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'community_posts', filter: `channel_slug=eq.${activeChannel}` }, (payload) => {
-        const deletedId = payload.old?.id;
-        if (!deletedId) return;
-        setPosts(prev => prev.filter(p => p.id !== deletedId));
-        fetchStats();
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'community_posts', filter: `channel_slug=eq.${activeChannel}` }, (payload) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'community_posts', filter: `channel_id=eq.${activeChannelId}` }, (payload) => {
         setPosts(prev => prev.map(p => p.id === payload.new.id ? { ...p, ...payload.new } : p));
       })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'community_posts', filter: `channel_id=eq.${activeChannelId}` }, (payload) => {
+        if (payload.old?.id) { setPosts(prev => prev.filter(p => p.id !== payload.old.id)); fetchStats(); }
+      })
       .subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [activeChannelId, user, fetchStats]);
 
-    return () => supabase.removeChannel(channel);
-  }, [activeChannel]);
-
-  // ── Infinite scroll ───────────────────────────────────────────────────────
   useEffect(() => {
     const observer = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore && !refreshing) fetchPosts(false);
+      if (entries[0].isIntersecting && hasMore && !refreshing && !initialLoad) fetchPosts(false);
     }, { threshold: 0.1 });
     if (loaderRef.current) observer.observe(loaderRef.current);
     return () => observer.disconnect();
-  }, [hasMore, refreshing, fetchPosts]);
+  }, [hasMore, refreshing, initialLoad, fetchPosts]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
-  const handleReact = async (postId, reactionType, currentReaction) => {
+  const handleReact = async (postId, reactionType) => {
     if (!user) return;
-    if (currentReaction === reactionType) {
-      await supabase.from('community_reactions').delete().eq('post_id', postId).eq('user_id', user.id);
+    const current = userReactions[postId];
+    if (current === reactionType) {
       setUserReactions(prev => { const n = { ...prev }; delete n[postId]; return n; });
-      setPosts(prev => prev.map(p => p.id === postId ? { ...p, like_count: Math.max(0, p.like_count - 1) } : p));
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, like_count: Math.max(0, (p.like_count || 0) - 1) } : p));
+      await supabase.from('community_reactions').delete().eq('post_id', postId).eq('user_id', user.id);
     } else {
-      if (currentReaction) {
-        await supabase.from('community_reactions').update({ type: reactionType }).eq('post_id', postId).eq('user_id', user.id);
-      } else {
-        await supabase.from('community_reactions').insert({ post_id: postId, user_id: user.id, type: reactionType });
-      }
       setUserReactions(prev => ({ ...prev, [postId]: reactionType }));
-      if (!currentReaction) {
-        setPosts(prev => prev.map(p => p.id === postId ? { ...p, like_count: (p.like_count || 0) + 1 } : p));
-      }
+      if (!current) setPosts(prev => prev.map(p => p.id === postId ? { ...p, like_count: (p.like_count || 0) + 1 } : p));
+      await supabase.from('community_reactions').upsert({ post_id: postId, user_id: user.id, type: reactionType, emoji: reactionType }, { onConflict: 'post_id,user_id' });
     }
     fetchTrending();
   };
@@ -828,32 +847,28 @@ export default function Community({ onNavigate }) {
   const handleSave = async (postId, isSaved) => {
     if (!user) return;
     if (isSaved) {
-      await supabase.from('community_saved').delete().eq('post_id', postId).eq('user_id', user.id);
       setSavedPosts(prev => { const n = { ...prev }; delete n[postId]; return n; });
+      await supabase.from('community_saved').delete().eq('post_id', postId).eq('user_id', user.id);
     } else {
-      await supabase.from('community_saved').insert({ post_id: postId, user_id: user.id });
       setSavedPosts(prev => ({ ...prev, [postId]: true }));
+      await supabase.from('community_saved').upsert({ post_id: postId, user_id: user.id }, { onConflict: 'post_id,user_id' });
     }
   };
 
   const handleDelete = async (postId) => {
     if (!window.confirm('Delete this post? This cannot be undone.')) return;
+    setPosts(prev => prev.filter(p => p.id !== postId));
     await supabase.from('community_posts').delete().eq('id', postId);
-    fetchStats();
+    fetchStats(); fetchTrending();
   };
 
-  const handlePostCreated = (newPost) => {
-    setPosts(prev => [newPost, ...prev]);
-    fetchStats();
-    fetchTrending();
-  };
+  const handlePostCreated = (newPost) => { setPosts(prev => [newPost, ...prev]); fetchStats(); fetchTrending(); };
+  const handlePostEdited  = (postId, updated) => { setPosts(prev => prev.map(p => p.id === postId ? { ...p, ...updated } : p)); };
+  const handleSearch = (e) => { e.preventDefault(); setSearch(searchDraft.trim()); };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setSearch(searchDraft.trim());
-  };
-
-  const activeCfg = CHANNEL_CONFIG[activeChannel] || CHANNEL_CONFIG.general;
+  const activeChannel = channels.find(c => c.id === activeChannelId);
+  const activeName    = activeChannel?.name || 'Community';
+  const { color: activeColor } = getChannelDisplay(activeChannel?.slug || '');
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg, #F8F7FF)' }}>
@@ -867,15 +882,18 @@ export default function Community({ onNavigate }) {
               transition={{ type: 'spring', stiffness: 280, damping: 28 }}
               style={{ width: 260, height: '100%', background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(20px)', borderRight: '1.5px solid rgba(109,74,255,0.1)', boxShadow: '4px 0 32px rgba(109,74,255,0.12)', padding: '28px 16px', overflowY: 'auto' }}
             >
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 18 }}>🏘 Channels</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 18 }}>Channels</div>
               {channels.map(ch => {
-                const cfg = CHANNEL_CONFIG[ch.slug] || CHANNEL_CONFIG.general;
-                const isActive = activeChannel === ch.slug;
+                const { color } = getChannelDisplay(ch.slug);
+                const isActive = ch.id === activeChannelId;
                 return (
-                  <button key={ch.slug} onClick={() => { setActiveChannel(ch.slug); setShowMobileNav(false); }}
-                    style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 11, marginBottom: 3, background: isActive ? `${cfg.color}14` : 'none', border: isActive ? `1.5px solid ${cfg.color}28` : '1.5px solid transparent', color: isActive ? cfg.color : 'var(--text-secondary)', fontSize: 13.5, fontWeight: isActive ? 600 : 500, cursor: 'pointer', transition: 'all 0.18s' }}
+                  <button
+                    key={ch.id}
+                    onClick={() => { setActiveChannelId(ch.id); setShowMobileNav(false); }}
+                    style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 11, marginBottom: 3, background: isActive ? `${color}14` : 'none', border: isActive ? `1.5px solid ${color}28` : '1.5px solid transparent', color: isActive ? color : 'var(--text-secondary)', fontSize: 13.5, fontWeight: isActive ? 600 : 500, cursor: 'pointer', transition: 'all 0.18s' }}
                   >
-                    <span>{cfg.icon}</span><span>{ch.name}</span>
+                    <ChannelIcon slug={ch.slug} size={18} />
+                    <span>{ch.name}</span>
                   </button>
                 );
               })}
@@ -901,20 +919,23 @@ export default function Community({ onNavigate }) {
       {/* 3-column layout */}
       <div className="community-layout" style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 20px', display: 'grid', gridTemplateColumns: '220px 1fr 260px', gap: 24, alignItems: 'start' }}>
 
-        {/* Left sidebar */}
+        {/* Left sidebar — channels */}
         <div className="community-left-sidebar" style={{ position: 'sticky', top: 90 }}>
           <div style={{ background: 'rgba(255,255,255,0.82)', border: '1.5px solid rgba(255,255,255,0.72)', borderRadius: 20, padding: '18px 14px', backdropFilter: 'blur(16px)', boxShadow: '0 4px 18px rgba(109,74,255,0.07)' }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12, padding: '0 6px' }}>🏘 Channels</div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12, padding: '0 6px' }}>Channels</div>
             {channels.map(ch => {
-              const cfg = CHANNEL_CONFIG[ch.slug] || CHANNEL_CONFIG.general;
-              const isActive = activeChannel === ch.slug;
+              const { color } = getChannelDisplay(ch.slug);
+              const isActive = ch.id === activeChannelId;
               return (
-                <button key={ch.slug} onClick={() => setActiveChannel(ch.slug)}
-                  style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 9, padding: '9px 10px', borderRadius: 10, marginBottom: 2, background: isActive ? `${cfg.color}13` : 'none', border: isActive ? `1.5px solid ${cfg.color}26` : '1.5px solid transparent', color: isActive ? cfg.color : 'var(--text-secondary)', fontSize: 13, fontWeight: isActive ? 600 : 500, cursor: 'pointer', transition: 'all 0.18s' }}
+                <button
+                  key={ch.id}
+                  onClick={() => setActiveChannelId(ch.id)}
+                  style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 9, padding: '9px 10px', borderRadius: 10, marginBottom: 2, background: isActive ? `${color}13` : 'none', border: isActive ? `1.5px solid ${color}26` : '1.5px solid transparent', color: isActive ? color : 'var(--text-secondary)', fontSize: 13, fontWeight: isActive ? 600 : 500, cursor: 'pointer', transition: 'all 0.18s' }}
                   onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(109,74,255,0.05)'; e.currentTarget.style.color = 'var(--primary)'; } }}
                   onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-secondary)'; } }}
                 >
-                  <span style={{ fontSize: 16 }}>{cfg.icon}</span>
+                  {/* 3D clay channel icon */}
+                  <ChannelIcon slug={ch.slug} size={18} />
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ch.name}</span>
                 </button>
               );
@@ -925,13 +946,13 @@ export default function Community({ onNavigate }) {
         {/* Center feed */}
         <div>
           <div style={{ marginBottom: 18 }}>
-            <button onClick={() => setShowMobileNav(true)} style={{ display: 'none', background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text-primary)', marginBottom: 12 }} className="mobile-hamburger">☰</button>
+            <button onClick={() => setShowMobileNav(true)} className="mobile-hamburger" style={{ display: 'none', background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text-primary)', marginBottom: 12 }}>☰</button>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 22 }}>{activeCfg.icon}</span>
+                <ChannelIcon slug={activeChannel?.slug || ''} size={28} />
                 <div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>{activeCfg.label}</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>{activeName}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{posts.length} post{posts.length !== 1 ? 's' : ''}</div>
                 </div>
               </div>
@@ -944,11 +965,13 @@ export default function Community({ onNavigate }) {
             </div>
 
             <form onSubmit={handleSearch} style={{ position: 'relative', marginBottom: 13 }}>
-              <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', fontSize: 15, color: 'var(--text-muted)', pointerEvents: 'none' }}>🔍</span>
+              <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              </span>
               <input
                 value={searchDraft}
                 onChange={e => setSearchDraft(e.target.value)}
-                placeholder={`Search in ${activeCfg.label}…`}
+                placeholder={`Search in ${activeName}…`}
                 style={{ width: '100%', padding: '11px 44px 11px 40px', background: 'rgba(255,255,255,0.9)', border: '1.5px solid rgba(109,74,255,0.14)', borderRadius: 12, fontSize: 13.5, color: 'var(--text-primary)', outline: 'none', backdropFilter: 'blur(8px)', boxSizing: 'border-box' }}
                 onFocus={e => e.target.style.borderColor = 'rgba(109,74,255,0.38)'}
                 onBlur={e => e.target.style.borderColor = 'rgba(109,74,255,0.14)'}
@@ -960,108 +983,62 @@ export default function Community({ onNavigate }) {
 
             <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
               {SORT_OPTIONS.map(opt => (
-                <button key={opt.key} onClick={() => setSort(opt.key)}
-                  style={{ padding: '6px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 500, border: sort === opt.key ? '1.5px solid rgba(109,74,255,0.4)' : '1.5px solid rgba(109,74,255,0.12)', background: sort === opt.key ? 'rgba(109,74,255,0.09)' : 'rgba(255,255,255,0.7)', color: sort === opt.key ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.18s', backdropFilter: 'blur(8px)' }}
-                >{opt.label}</button>
+                <button key={opt.key} onClick={() => setSort(opt.key)} style={{ padding: '6px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 500, border: sort === opt.key ? '1.5px solid rgba(109,74,255,0.4)' : '1.5px solid rgba(109,74,255,0.12)', background: sort === opt.key ? 'rgba(109,74,255,0.09)' : 'rgba(255,255,255,0.7)', color: sort === opt.key ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.18s', backdropFilter: 'blur(8px)' }}>{opt.label}</button>
               ))}
             </div>
           </div>
 
-          {/* Search active banner */}
           <AnimatePresence>
             {search && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden', marginBottom: 14 }}>
                 <div style={{ background: 'rgba(109,74,255,0.06)', border: '1px solid rgba(109,74,255,0.15)', borderRadius: 11, padding: '9px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>🔍 Results for <strong style={{ color: 'var(--primary)' }}>"{search}"</strong></span>
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Results for <strong style={{ color: 'var(--primary)' }}>"{search}"</strong></span>
                   <button onClick={() => { setSearch(''); setSearchDraft(''); }} style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}>Clear</button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* FIX: Thin animated bar replaces the blank-screen flash */}
           <LoadingBar visible={refreshing} />
 
-          {/* Posts */}
-          {initialLoad ? (
-            // Only shown once — on the very first page load
-            <PostSkeleton />
-          ) : posts.length === 0 && !refreshing ? (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              style={{ textAlign: 'center', padding: '56px 24px', background: 'rgba(255,255,255,0.78)', border: '1.5px solid rgba(109,74,255,0.1)', borderRadius: 20 }}
-            >
-              <div style={{ fontSize: 48, marginBottom: 14 }}>{activeCfg.icon}</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
-                {search ? 'No matching posts' : `No posts in ${activeCfg.label} yet`}
-              </div>
-              <div style={{ fontSize: 13.5, color: 'var(--text-muted)', marginBottom: 20 }}>
-                {search ? 'Try different keywords' : 'Be the first to start a conversation here!'}
-              </div>
-              <button
-                onClick={() => user ? setShowModal(true) : onNavigate?.('auth')}
-                style={{ background: 'var(--primary)', color: '#fff', border: 'none', padding: '11px 26px', borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(109,74,255,0.28)' }}
-              >✏️ Create Post</button>
+          {initialLoad ? <PostSkeleton /> : posts.length === 0 ? (
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', padding: '56px 24px', background: 'rgba(255,255,255,0.78)', border: '1.5px solid rgba(109,74,255,0.1)', borderRadius: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}><ChannelIcon slug={activeChannel?.slug || ''} size={48} /></div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>{search ? 'No matching posts' : `No posts in ${activeName} yet`}</div>
+              <div style={{ fontSize: 13.5, color: 'var(--text-muted)', marginBottom: 20 }}>{search ? 'Try different keywords' : 'Be the first to start a conversation here!'}</div>
+              {!search && <button onClick={() => user ? setShowModal(true) : onNavigate?.('auth')} style={{ background: 'var(--primary)', color: '#fff', border: 'none', padding: '11px 26px', borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(109,74,255,0.28)' }}>✏️ Create Post</button>}
             </motion.div>
           ) : (
-            // FIX: Plain div — no AnimatePresence wrapper around the list.
-            // Cards use only whileHover, so they never re-animate on filter
-            // changes. The list cross-fade is replaced by the LoadingBar above,
-            // which is far cheaper and doesn't cause layout shift.
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {posts.map(post => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  user={user}
-                  userReaction={userReactions[post.id]}
-                  isSaved={!!savedPosts[post.id]}
-                  onReact={handleReact}
-                  onSave={handleSave}
-                  onDelete={handleDelete}
-                  onEdit={() => {}}
-                />
-              ))}
+              <AnimatePresence>
+                {posts.map(post => (
+                  <PostCard key={post.id} post={post} user={user} channels={channels} userReaction={userReactions[post.id] || null} isSaved={!!savedPosts[post.id]} onReact={handleReact} onSave={handleSave} onDelete={handleDelete} onEdit={handlePostEdited} />
+                ))}
+              </AnimatePresence>
             </div>
           )}
 
-          {/* Infinite scroll loader */}
           <div ref={loaderRef} style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {refreshing && posts.length > 0 && (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 {[0, 1, 2].map(i => (
-                  <motion.div
-                    key={i}
-                    animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
-                    transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.2 }}
-                    style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--primary)' }}
-                  />
+                  <motion.div key={i} animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }} transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.2 }} style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--primary)' }} />
                 ))}
               </div>
             )}
-            {!hasMore && posts.length > 0 && !refreshing && (
-              <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>You've seen all posts ✓</div>
-            )}
+            {!hasMore && posts.length > 0 && !refreshing && <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>You've seen all posts ✓</div>}
           </div>
         </div>
 
         {/* Right sidebar */}
         <div className="community-right-sidebar" style={{ position: 'sticky', top: 90 }}>
-          <RightSidebar stats={stats} trendingPosts={trendingPosts} />
+          <RightSidebar stats={stats} trendingPosts={trendingPosts} channels={channels} />
         </div>
       </div>
 
-      {/* Create Post Modal */}
       <AnimatePresence>
         {showModal && (
-          <CreatePostModal
-            onClose={() => setShowModal(false)}
-            onCreated={handlePostCreated}
-            channels={channels}
-            currentChannel={activeChannel}
-            user={user}
-          />
+          <CreatePostModal onClose={() => setShowModal(false)} onCreated={handlePostCreated} channels={channels} currentChannelId={activeChannelId} user={user} />
         )}
       </AnimatePresence>
 
