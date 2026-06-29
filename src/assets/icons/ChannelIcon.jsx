@@ -4,22 +4,27 @@
  * Used by Community.jsx to render channel icons consistently.
  */
 import {
-  AnnouncementsIcon, RidesIcon, EventsIcon, RoommatesIcon,
-  BuySellIcon, SportsIcon, SearchIcon, EmergencyIcon, JobsIcon, MessagesIcon,
+  AnnouncementsIcon, SportsIcon, SearchIcon, EmergencyIcon,
+  JobsIcon, MessagesIcon, PetsIcon, FoodIcon, EducationIcon,
+  BuySellIcon, RidesIcon, EventsIcon, RoommatesIcon,
 } from './index.jsx';
 
 /** Map slug → { Icon component, color } */
 const CHANNEL_ICON_MAP = {
-  announcements:    { Comp: AnnouncementsIcon, color: '#D97706' },
   general:          { Comp: MessagesIcon,      color: '#6B7280' },
-  rides:            { Comp: RidesIcon,         color: '#0284C7' },
-  events:           { Comp: EventsIcon,        color: '#7C3AED' },
-  roommates:        { Comp: RoommatesIcon,     color: '#059669' },
-  'buy-and-sell':   { Comp: BuySellIcon,       color: '#059669' },
+  announcements:    { Comp: AnnouncementsIcon, color: '#D97706' },
   sports:           { Comp: SportsIcon,        color: '#0284C7' },
+  'ride-sharing':   { Comp: RidesIcon,         color: '#16A34A' },
+  events:           { Comp: EventsIcon,        color: '#DB2777' },
+  'buy-sell':       { Comp: BuySellIcon,       color: '#EA580C' },
   'lost-and-found': { Comp: SearchIcon,        color: '#DC2626' },
   help:             { Comp: EmergencyIcon,     color: '#DC2626' },
+  'help-support':   { Comp: EmergencyIcon,     color: '#DC2626' },
   jobs:             { Comp: JobsIcon,          color: '#6D4AFF' },
+  foodies:          { Comp: FoodIcon,          color: '#EA580C' },
+  pets:             { Comp: PetsIcon,          color: '#B45309' },
+  students:         { Comp: EducationIcon,     color: '#7C3AED' },
+  roommates:        { Comp: RoommatesIcon,     color: '#7C3AED' },
 };
 
 const FALLBACK = { Comp: MessagesIcon, color: '#6B7280' };
