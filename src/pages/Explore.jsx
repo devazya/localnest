@@ -246,32 +246,7 @@ function ExploreMapCard({ onViewFullMap }) {
       {/*
         
 
-      {/* Recenter button — bottom-right, away from panel */}
-      <button
-        style={{
-          position: 'absolute',
-          bottom: 14,
-          right: 14,
-          zIndex: 500,
-          width: 38,
-          height: 38,
-          borderRadius: '50%',
-          background: 'rgba(255,255,255,0.92)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255,255,255,0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.16)',
-          cursor: 'pointer',
-        }}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.purple} strokeWidth="2.1" strokeLinecap="round">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-        </svg>
-      </button>
+      
 
       {/* ── Marker mini bottom-sheet (inside card) ── */}
       <AnimatePresence>
