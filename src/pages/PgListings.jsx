@@ -1,51 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '../services/supabase/client';
 
-/* ── Dummy PG Data ── */
-const PG_LISTINGS = [
-  {
-    id: 'pg-001',
-    name: 'Sunrise Boys PG',
-    location: 'Spice Garden, Bommanahalli',
-    distance: '0.3 km from you',
-    rent: 8500, deposit: 17000, rating: 4.6, reviews: 38,
-    gender: 'Male', occupancy: 'Double', furnishing: 'Fully Furnished',
-    ac: true, food: true, verified: true, featured: true, sponsored: false, vacancy: true,
-    amenities: ['WiFi', 'AC', 'Food', 'Laundry', 'Power Backup', 'RO Water'],
-    image: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600&q=80',
-    description: 'Spacious double-sharing rooms in the heart of Spice Garden.',
-    owner: { name: 'Ramesh Kumar', phone: '+91 98450 12345', avatar: 'RK', responseRate: '95%' },
-    availableFrom: 'Immediately',
-  },
-  {
-    id: 'pg-002',
-    name: 'Green Valley Girls PG',
-    location: 'HSR Layout, Sector 2',
-    distance: '1.2 km from you',
-    rent: 11000, deposit: 22000, rating: 4.8, reviews: 62,
-    gender: 'Female', occupancy: 'Single', furnishing: 'Fully Furnished',
-    ac: true, food: true, verified: true, featured: false, sponsored: true, vacancy: true,
-    amenities: ['WiFi', 'AC', 'Food', 'CCTV', 'Gym', 'Housekeeping', 'RO Water', 'Parking'],
-    image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80',
-    description: 'Premium single-occupancy rooms exclusively for working women.',
-    owner: { name: 'Sunita Rao', phone: '+91 99001 87654', avatar: 'SR', responseRate: '99%' },
-    availableFrom: 'Immediately',
-  },
-  {
-    id: 'pg-003',
-    name: 'Urban Nest Co-living',
-    location: 'Koramangala, 5th Block',
-    distance: '2.8 km from you',
-    rent: 14500, deposit: 29000, rating: 4.4, reviews: 24,
-    gender: 'Unisex', occupancy: 'Single', furnishing: 'Fully Furnished',
-    ac: true, food: false, verified: true, featured: false, sponsored: false, vacancy: false,
-    amenities: ['WiFi', 'AC', 'Rooftop', 'Bike Parking', 'Power Backup', 'Community Hall'],
-    image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=80',
-    description: 'Modern co-living space designed for young professionals.',
-    owner: { name: 'Aditya Menon', phone: '+91 97400 55123', avatar: 'AM', responseRate: '88%' },
-    availableFrom: 'Next Month',
-  },
-];
+// ─── Skeleton ──────────────────────────────────────────────────────────────────
+function PgSkeleton() {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 22 }}>
+      {[1, 2, 3, 4, 5, 6].map(i => (
+        <div key={i} style={{ background: 'rgba(255,255,255,0.88)', border: '1.5px solid rgba(255,255,255,0.7)', borderRadius: 20, overflow: 'hidden', backdropFilter: 'blur(16px)' }}>
+          <div style={{ height: 200, background: 'rgba(109,74,255,0.06)' }} />
+          <div style={{ padding: '16px 18px 18px' }}>
+            <div style={{ height: 16, width: '70%', borderRadius: 6, background: 'rgba(109,74,255,0.07)', marginBottom: 8 }} />
+            <div style={{ height: 11, width: '55%', borderRadius: 6, background: 'rgba(109,74,255,0.05)', marginBottom: 12 }} />
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+              {[1, 2, 3].map(j => <div key={j} style={{ height: 20, width: 60, borderRadius: 6, background: 'rgba(109,74,255,0.05)' }} />)}
+            </div>
+            <div style={{ height: 36, borderRadius: 10, background: 'rgba(109,74,255,0.07)', marginTop: 14 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const FILTER_DEFAULTS = {
   gender: 'All', food: 'All', occupancy: 'All',
@@ -143,7 +119,12 @@ function FilterPanel({ filters, setFilter, setFilters }) {
 }
 
 /* ── PG Card ── */
-function PgCard({ pg, onViewDetails }) {
+function PgCard({ pg, onViewDetails, isSaved, onToggleSave, user }) {
+  const amenities = Array.isArray(pg.amenities) ? pg.amenities : [];
+  const images    = Array.isArray(pg.images) ? pg.images : (pg.image ? [pg.image] : []);
+  const coverImg  = images[0] || null;
+  const isOwner   = user && pg.user_id === user.id;
+
   return (
     <motion.div
       layout
@@ -161,49 +142,70 @@ function PgCard({ pg, onViewDetails }) {
       onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 20px rgba(109,74,255,0.07)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)'; }}
     >
       <div style={{ height: 200, position: 'relative', overflow: 'hidden' }}>
-        <img src={pg.image} alt={pg.name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease' }}
-          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
-          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-        />
+        {coverImg ? (
+          <img src={coverImg} alt={pg.name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease' }}
+            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
+            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+          />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 56, opacity: 0.2, background: 'rgba(109,74,255,0.04)' }}>🏠</div>
+        )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.35) 0%, transparent 55%)' }} />
         <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {pg.verified  && <span className="badge badge-blue">✓ Verified</span>}
-          {pg.sponsored && <span className="badge badge-amber">⭐ Sponsored</span>}
-          {pg.featured  && <span className="badge badge-purple">🔥 Featured</span>}
+          {pg.is_verified  && <span className="badge badge-blue">✓ Verified</span>}
+          {pg.is_sponsored && <span className="badge badge-amber">⭐ Sponsored</span>}
+          {pg.is_featured  && <span className="badge badge-purple">🔥 Featured</span>}
         </div>
         <div style={{ position: 'absolute', top: 12, right: 12 }}>
           <span className={`badge ${pg.vacancy ? 'badge-green' : 'badge-red'}`}>{pg.vacancy ? '✓ Available' : 'Full'}</span>
         </div>
         <div style={{ position: 'absolute', bottom: 12, left: 14 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: '#fff', lineHeight: 1, textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}>₹{pg.rent.toLocaleString()}</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: '#fff', lineHeight: 1, textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}>₹{Number(pg.rent).toLocaleString()}</div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>/month</div>
         </div>
-        <button style={{ position: 'absolute', bottom: 12, right: 12, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', border: '1px solid rgba(109,74,255,0.1)', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, cursor: 'pointer' }}>♡</button>
+        <button
+          onClick={e => { e.stopPropagation(); onToggleSave(pg.id); }}
+          style={{ position: 'absolute', bottom: 12, right: 12, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', border: '1px solid rgba(109,74,255,0.1)', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, cursor: 'pointer' }}>
+          {isSaved ? '🔖' : '♡'}
+        </button>
       </div>
       <div style={{ padding: '16px 18px 18px' }}>
         <div style={{ marginBottom: 6 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 3 }}>{pg.name}</div>
           <div style={{ fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-            📍 {pg.location} · <span style={{ color: 'var(--primary)', fontWeight: 500 }}>{pg.distance}</span>
+            📍 {pg.location || pg.locality || '—'}
+            {pg.distance_km && <> · <span style={{ color: 'var(--primary)', fontWeight: 500 }}>{pg.distance_km} km away</span></>}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, marginTop: 10 }}>
-          {[pg.gender, pg.occupancy, pg.furnishing, pg.ac ? 'AC' : 'Non-AC', pg.food ? 'Food Included' : 'No Food'].map(m => (
+          {[
+            pg.gender_preference,
+            pg.occupancy_type,
+            pg.furnishing,
+            pg.has_ac ? 'AC' : 'Non-AC',
+            pg.food_included ? 'Food Included' : 'No Food',
+          ].filter(Boolean).map(m => (
             <span key={m} style={{ background: 'rgba(109,74,255,0.06)', border: '1px solid rgba(109,74,255,0.12)', borderRadius: 6, padding: '2px 9px', fontSize: 11.5, color: 'var(--text-secondary)' }}>{m}</span>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 14 }}>
-          {pg.amenities.slice(0, 4).map(a => (
+          {amenities.slice(0, 4).map(a => (
             <span key={a} style={{ background: 'rgba(109,74,255,0.05)', border: '1px solid rgba(109,74,255,0.12)', borderRadius: 5, padding: '2px 8px', fontSize: 11, color: 'var(--primary)' }}>{a}</span>
           ))}
-          {pg.amenities.length > 4 && <span style={{ fontSize: 11, color: 'var(--text-muted)', padding: '2px 4px' }}>+{pg.amenities.length - 4} more</span>}
+          {amenities.length > 4 && <span style={{ fontSize: 11, color: 'var(--text-muted)', padding: '2px 4px' }}>+{amenities.length - 4} more</span>}
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ color: '#F59E0B', fontWeight: 700 }}>★ {pg.rating}</span>
-            <span style={{ color: 'var(--text-muted)' }}>({pg.reviews} reviews)</span>
+            {pg.rating ? (
+              <><span style={{ color: '#F59E0B', fontWeight: 700 }}>★ {Number(pg.rating).toFixed(1)}</span>
+              <span style={{ color: 'var(--text-muted)' }}>({pg.review_count || 0} reviews)</span></>
+            ) : (
+              <span style={{ color: 'var(--text-muted)' }}>No reviews yet</span>
+            )}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Deposit: <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>₹{pg.deposit.toLocaleString()}</span></div>
+          {pg.deposit && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Deposit: <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>₹{Number(pg.deposit).toLocaleString()}</span></div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => onViewDetails(pg.id)}
@@ -211,11 +213,17 @@ function PgCard({ pg, onViewDetails }) {
             onMouseEnter={e => { e.currentTarget.style.background = '#5B38E8'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.transform = ''; }}
           >View Details</button>
-          <button style={{ background: 'rgba(109,74,255,0.07)', border: '1.5px solid rgba(109,74,255,0.14)', color: 'var(--text-secondary)', padding: '9px 13px', borderRadius: 10, fontSize: 16, cursor: 'pointer', transition: 'all 0.2s' }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(109,74,255,0.12)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'rgba(109,74,255,0.07)'}
-          >📞</button>
-          <button style={{ background: 'rgba(16,185,129,0.08)', border: '1.5px solid rgba(16,185,129,0.18)', color: '#059669', padding: '9px 13px', borderRadius: 10, fontSize: 16, cursor: 'pointer', transition: 'all 0.2s' }}
+          {pg.owner_phone && (
+            <button
+              onClick={e => { e.stopPropagation(); window.open(`tel:${pg.owner_phone}`); }}
+              style={{ background: 'rgba(109,74,255,0.07)', border: '1.5px solid rgba(109,74,255,0.14)', color: 'var(--text-secondary)', padding: '9px 13px', borderRadius: 10, fontSize: 16, cursor: 'pointer', transition: 'all 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(109,74,255,0.12)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(109,74,255,0.07)'}
+            >📞</button>
+          )}
+          <button
+            onClick={e => e.stopPropagation()}
+            style={{ background: 'rgba(16,185,129,0.08)', border: '1.5px solid rgba(16,185,129,0.18)', color: '#059669', padding: '9px 13px', borderRadius: 10, fontSize: 16, cursor: 'pointer', transition: 'all 0.2s' }}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(16,185,129,0.14)'}
             onMouseLeave={e => e.currentTarget.style.background = 'rgba(16,185,129,0.08)'}
           >💬</button>
@@ -227,22 +235,108 @@ function PgCard({ pg, onViewDetails }) {
 
 /* ── Main Component ── */
 export default function PgListings({ onNavigate, user }) {
-  const [filters, setFilters] = useState(FILTER_DEFAULTS);
-  const [search, setSearch]   = useState('');
-  
+  const [listings, setListings]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [filters, setFilters]     = useState(FILTER_DEFAULTS);
+  const [search, setSearch]       = useState('');
+  const [savedIds, setSavedIds]   = useState(new Set());
+  const [authUser, setAuthUser]   = useState(user || null);
+
+  // Keep authUser in sync if prop changes
+  useEffect(() => { setAuthUser(user || null); }, [user]);
+
+  // Also subscribe to auth changes for standalone usage
+  useEffect(() => {
+    if (user) return; // already provided by parent
+    supabase.auth.getUser().then(({ data }) => setAuthUser(data?.user || null));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setAuthUser(s?.user || null));
+    return () => subscription?.unsubscribe();
+  }, [user]);
+
+  // Fetch PG listings from Supabase
+  const fetchListings = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('pg_listings')
+      .select(`
+        *,
+        profiles:user_id (id, full_name, username, avatar_url)
+      `)
+      .eq('status', 'active')
+      .order('is_featured', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (!error) setListings(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchListings(); }, [fetchListings]);
+
+  // Saved (favourited) PGs
+  useEffect(() => {
+    if (!authUser) { setSavedIds(new Set()); return; }
+    supabase
+      .from('pg_saved')
+      .select('listing_id')
+      .eq('user_id', authUser.id)
+      .then(({ data }) => setSavedIds(new Set((data || []).map(r => r.listing_id))));
+  }, [authUser]);
+
+  // Realtime — new listing added by someone else appears immediately
+  useEffect(() => {
+    const channel = supabase
+      .channel('pg-listings-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pg_listings' }, async (payload) => {
+        const { data } = await supabase
+          .from('pg_listings')
+          .select('*, profiles:user_id (id, full_name, username, avatar_url)')
+          .eq('id', payload.new.id)
+          .single();
+        if (data && data.status === 'active') setListings(prev => [data, ...prev]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pg_listings' }, (payload) => {
+        setListings(prev =>
+          payload.new.status !== 'active'
+            ? prev.filter(l => l.id !== payload.new.id)
+            : prev.map(l => l.id === payload.new.id ? { ...l, ...payload.new } : l)
+        );
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'pg_listings' }, (payload) => {
+        setListings(prev => prev.filter(l => l.id !== payload.old.id));
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, []);
+
+  const handleToggleSave = async (listingId) => {
+    if (!authUser) return;
+    if (savedIds.has(listingId)) {
+      await supabase.from('pg_saved').delete().eq('listing_id', listingId).eq('user_id', authUser.id);
+      setSavedIds(prev => { const n = new Set(prev); n.delete(listingId); return n; });
+    } else {
+      await supabase.from('pg_saved').insert({ listing_id: listingId, user_id: authUser.id });
+      setSavedIds(prev => new Set([...prev, listingId]));
+    }
+  };
 
   const setFilter = (key, val) => setFilters(f => ({ ...f, [key]: val }));
 
-  const filtered = PG_LISTINGS.filter(pg => {
-    if (filters.gender !== 'All' && pg.gender !== filters.gender) return false;
-    if (filters.food === 'Included' && !pg.food) return false;
-    if (filters.food === 'Not Included' && pg.food) return false;
-    if (filters.occupancy !== 'All' && pg.occupancy !== filters.occupancy) return false;
-    if (filters.ac === 'AC' && !pg.ac) return false;
-    if (filters.ac === 'Non AC' && pg.ac) return false;
-    if (filters.verified && !pg.verified) return false;
+  // Filter logic — maps Supabase column names to the same UI filter keys
+  const filtered = listings.filter(pg => {
+    if (filters.gender !== 'All' && pg.gender_preference !== filters.gender) return false;
+    if (filters.food === 'Included' && !pg.food_included) return false;
+    if (filters.food === 'Not Included' && pg.food_included) return false;
+    if (filters.occupancy !== 'All' && pg.occupancy_type !== filters.occupancy) return false;
+    if (filters.ac === 'AC' && !pg.has_ac) return false;
+    if (filters.ac === 'Non AC' && pg.has_ac) return false;
+    if (filters.verified && !pg.is_verified) return false;
     if (filters.availability === 'Available Now' && !pg.vacancy) return false;
-    if (search && !pg.name.toLowerCase().includes(search.toLowerCase()) && !pg.location.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const inName     = (pg.name || '').toLowerCase().includes(q);
+      const inLocation = (pg.location || pg.locality || '').toLowerCase().includes(q);
+      if (!inName && !inLocation) return false;
+    }
     return true;
   });
 
@@ -256,9 +350,8 @@ export default function PgListings({ onNavigate, user }) {
             Find Your <span style={{ color: 'var(--primary)' }}>PG in Bangalore</span>
           </h1>
           <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>
-            {filtered.length} verified PGs near Spice Garden & surrounding localities
+            {loading ? 'Loading PGs…' : `${filtered.length} verified PG${filtered.length !== 1 ? 's' : ''} near Spice Garden & surrounding localities`}
           </p>
-
 
           <div style={{ position: 'relative', maxWidth: 500 }}>
             <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 15, opacity: 0.45 }}>🔍</span>
@@ -284,26 +377,49 @@ export default function PgListings({ onNavigate, user }) {
         </aside>
 
         <div>
-          {filtered.length === 0 ? (
+          {loading ? (
+            <PgSkeleton />
+          ) : filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-muted)' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🏠</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>No PGs match your filters</div>
-              <div style={{ fontSize: 14 }}>Try adjusting or resetting your filters.</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                {listings.length === 0 ? 'No PGs listed yet' : 'No PGs match your filters'}
+              </div>
+              <div style={{ fontSize: 14, marginBottom: 20 }}>
+                {listings.length === 0
+                  ? 'Be the first to list a PG in this area!'
+                  : 'Try adjusting or resetting your filters.'}
+              </div>
+              {listings.length === 0 ? (
+                <button
+                  onClick={() => onNavigate?.('post:pg')}
+                  style={{ background: 'var(--primary)', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+                >+ List a PG</button>
+              ) : (
+                <button
+                  onClick={() => setFilters(FILTER_DEFAULTS)}
+                  style={{ background: 'rgba(109,74,255,0.08)', color: 'var(--primary)', border: '1.5px solid rgba(109,74,255,0.2)', padding: '10px 24px', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+                >Reset Filters</button>
+              )}
             </div>
           ) : (
             <motion.div layout style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 22 }}>
               <AnimatePresence>
                 {filtered.map(pg => (
-                  <PgCard key={pg.id} pg={pg} onViewDetails={() => onNavigate?.('pgdetails')} />
+                  <PgCard
+                    key={pg.id}
+                    pg={pg}
+                    user={authUser}
+                    isSaved={savedIds.has(pg.id)}
+                    onToggleSave={handleToggleSave}
+                    onViewDetails={() => onNavigate?.('pgdetails')}
+                  />
                 ))}
               </AnimatePresence>
             </motion.div>
           )}
         </div>
       </div>
-
-      {/* Modal — only mounts when opened */}
-      
 
       <style>{`
         @media (max-width: 900px) {
