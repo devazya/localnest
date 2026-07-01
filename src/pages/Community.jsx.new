@@ -12,33 +12,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../services/supabase/client';
 import { useAuth } from '../context/AuthContext';
 
-import { CHANNELS, PAGE_SIZE, DISCUSSION_CHANNEL_SLUGS } from '../components/community/constants';
-import { getChannelMeta, isToday, isThisWeek, isThisMonth, sortDiscussions, buildDiscoveryGroups } from '../components/community/utils';
-import { usePresenceCount, usePresenceCounts } from '../hooks/usePresence';
-import {
-  fetchDiscoveryDiscussions,
-  fetchDiscussionById,
-  createDiscussion as createDiscussionRow,
-  touchDiscussionActivity,
-  sweepArchivedDiscussions,
-  subscribeToDiscussions,
-} from '../services/discussions';
+import { CHANNELS, PAGE_SIZE } from '../components/community/constants';
+import { getChannelMeta, isToday, isThisWeek, isThisMonth } from '../components/community/utils';
 
 import CommunityLayout from '../components/community/CommunityLayout';
 import CommunityHeader from '../components/community/CommunityHeader';
+import ChannelHeader from '../components/community/ChannelHeader';
 import CommunityDrawer from '../components/community/CommunityDrawer';
 import LiveActivityStrip from '../components/community/LiveActivityStrip';
-import ChannelNavigation from '../components/community/ChannelNavigation';
 import CommunityFilters from '../components/community/CommunityFilters';
 import FilterSheet from '../components/community/FilterSheet';
 import SearchOverlay from '../components/community/SearchOverlay';
 import CreatePostModal from '../components/community/CreatePostModal';
-import ChannelPlaceholder from '../components/community/ChannelPlaceholder';
-import GeneralExperience from '../components/community/GeneralExperience';
-import DiscussionSection from '../components/community/DiscussionSection';
-import CommunityChatScreen from '../components/community/CommunityChatScreen';
-import DiscussionRoom from '../components/community/DiscussionRoom';
-import CreateDiscussionSheet from '../components/community/CreateDiscussionSheet';
+import PostCard from '../components/community/PostCard';
+import GeneralChat from '../components/community/GeneralChat';
+import EmptyState from '../components/community/EmptyState';
+import AllCaughtUp from '../components/community/AllCaughtUp';
+import PostSkeleton from '../components/community/PostSkeleton';
 
 const POST_SELECT = `id,author_id,channel_id,channel_slug,title,body,image_urls,is_anonymous,is_pinned,like_count,downvote_count,comment_count,post_type,metadata,is_removed,report_count,created_at,updated_at,profiles:author_id(id,full_name,username,avatar_url,is_verified)`;
 
@@ -64,22 +54,8 @@ export default function Community({ onNavigate }) {
   const [savedPosts, setSavedPosts]           = useState({});
   const [unreadCounts, setUnreadCounts]       = useState({});
   const [activityChannels, setActivityChannels] = useState([]);
+  const [collapsedHeader, setCollapsedHeader] = useState(false);
   const [viewAnyway, setViewAnyway]           = useState({});
-  const [showChatScreen, setShowChatScreen]   = useState(false);
-  const [showCreateDiscussion, setShowCreateDiscussion] = useState(false);
-  const [creatingDiscussion, setCreatingDiscussion] = useState(false);
-  const [activeDiscussionId, setActiveDiscussionId] = useState(null);
-  // Discussions (Segment 3) — the reusable Discussion Ecosystem. Supabase is
-  // the only source of truth; nothing here is hardcoded. `allDiscussions`
-  // holds every ACTIVE discussion across every Community channel so both a
-  // single channel's list and General's cross-channel discovery hub
-  // (Trending / Recently Active / Popular) can be derived from one fetch
-  // plus one realtime subscription. Member counts are NOT stored here —
-  // they come live from Supabase Realtime Presence (see getMemberCount
-  // below) so the UI never shows fake numbers.
-  const [allDiscussions, setAllDiscussions]   = useState([]);
-  const [discussionsLoading, setDiscussionsLoading] = useState(true);
-  const [discussionSort, setDiscussionSort]   = useState('recent_activity');
   const loaderRef = useRef(null);
 
   // ─ Auth ─
@@ -116,48 +92,6 @@ export default function Community({ onNavigate }) {
         }
       });
   // eslint-disable-next-line
-  }, []);
-
-  // ─ Discussions (Segment 3): initial load + realtime + auto-archive sweep ─
-  useEffect(() => {
-    let cancelled = false;
-    setDiscussionsLoading(true);
-    fetchDiscoveryDiscussions({ limit: 100 })
-      .then((rows) => { if (!cancelled) setAllDiscussions(rows); })
-      .catch((err) => console.error('Failed to load discussions:', err))
-      .finally(() => { if (!cancelled) setDiscussionsLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = subscribeToDiscussions({
-      onInsert: async (row) => {
-        // Realtime payloads only carry raw table columns (no joined
-        // profile) — hydrate before adding so cards can show the creator.
-        try {
-          const full = await fetchDiscussionById(row.id);
-          setAllDiscussions(prev => (prev.some(d => d.id === full.id) ? prev : [full, ...prev]));
-        } catch {
-          setAllDiscussions(prev => (prev.some(d => d.id === row.id) ? prev : [row, ...prev]));
-        }
-      },
-      onUpdate: (row) => {
-        setAllDiscussions(prev => {
-          const next = prev.map(d => (d.id === row.id ? { ...d, ...row } : d));
-          // Archived discussions disappear from Active Discussions.
-          return next.filter(d => d.status !== 'archived');
-        });
-      },
-    });
-    return unsubscribe;
-  }, []);
-
-  // 24h without activity → archived. No server cron wired up yet, so this
-  // lazy sweep runs on mount and every few minutes while Community is open.
-  useEffect(() => {
-    sweepArchivedDiscussions().catch(() => {});
-    const id = setInterval(() => { sweepArchivedDiscussions().catch(() => {}); }, 5 * 60 * 1000);
-    return () => clearInterval(id);
   }, []);
 
   // ─ Seed initial activity strip from most recent posts (real data, not mock) ─
@@ -292,6 +226,7 @@ export default function Community({ onNavigate }) {
       return;
     }
     setActiveChannelId(id);
+    setCollapsedHeader(false);
     if (ch) setUnreadCounts(prev => ({ ...prev, [id]: 0, [ch.slug]: 0 }));
   };
 
@@ -380,99 +315,22 @@ export default function Community({ onNavigate }) {
   const activeName     = activeChannel?.name || 'Community';
   const activeMeta     = getChannelMeta(activeSlug);
   const isChat         = activeMeta?.type === 'chat';
-  const isGeneral      = activeSlug === 'general';
-  const isDiscussionChannel = !isGeneral && DISCUSSION_CHANNEL_SLUGS.includes(activeSlug);
-
-  const latestChatMessage = useMemo(() => {
-    if (!isGeneral || posts.length === 0) return null;
-    const last = posts[posts.length - 1];
-    const name = last.is_anonymous ? 'Anonymous' : (last.profiles?.full_name || last.profiles?.username || 'Someone');
-    const text = last.title || last.body || '';
-    return text ? { name, text } : null;
-  }, [isGeneral, posts]);
-
-  const activeDiscussion = allDiscussions.find(d => d.id === activeDiscussionId) || null;
-
-  const handleCreateDiscussion = async ({ title, community_channel, category, description }) => {
-    if (!user) { onNavigate?.('auth'); return; }
-    setCreatingDiscussion(true);
-    try {
-      const row = await createDiscussionRow({ title, description, community_channel, category, creator_id: user.id });
-      setAllDiscussions(prev => [row, ...prev.filter(d => d.id !== row.id)]);
-      setShowCreateDiscussion(false);
-      setActiveDiscussionId(row.id);
-    } catch (err) {
-      console.error('Failed to create discussion:', err);
-    } finally {
-      setCreatingDiscussion(false);
-    }
-  };
-
-  // Every new message updates last_activity_at (sorting / Trending /
-  // Recently Active / Auto Archive). The Discussion Room's message list
-  // itself stays local/ephemeral (unchanged, not rebuilt this segment).
-  const handleDiscussionMessage = (discussionId) => {
-    const now = new Date().toISOString();
-    setAllDiscussions(prev => prev.map(d => (d.id === discussionId ? { ...d, last_activity_at: now, status: 'active' } : d)));
-    touchDiscussionActivity(discussionId).catch((err) => console.error('Failed to update discussion activity:', err));
-  };
-
-  // ─ Presence (real online counts — Segment 2) ─
-  // Neighbourhood Chat is a single permanent room ('general'). The current
-  // user only counts as present while the chat screen is actually open —
-  // viewing the preview card observes the live count without joining it.
-  const generalOnlineCount = usePresenceCount('general', user?.id, showChatScreen);
-
-  // Every Discussion card needs a live count even before it's been opened,
-  // so we watch all of them at once (read-only — joining happens only once
-  // a room is actually opened, inside DiscussionRoom itself).
-  const discussionRoomKeys = useMemo(() => allDiscussions.map(d => `discussion:${d.id}`), [allDiscussions]);
-  const discussionCounts = usePresenceCounts(discussionRoomKeys);
-  const getMemberCount = useCallback((id) => discussionCounts[`discussion:${id}`] ?? 0, [discussionCounts]);
-
-  // Single Community channel's discussion list (Sports, Ride Sharing,
-  // Events, Marketplace, Jobs, Help, Lost & Found — General uses the
-  // discovery groups below instead).
-  const channelDiscussions = useMemo(
-    () => allDiscussions.filter(d => d.community_channel === activeSlug),
-    [allDiscussions, activeSlug]
-  );
-  const sortedChannelDiscussions = useMemo(
-    () => sortDiscussions(channelDiscussions, discussionSort, getMemberCount),
-    [channelDiscussions, discussionSort, getMemberCount]
-  );
-
-  // General's discovery hub — Trending / Recently Active / Popular, pulled
-  // from every Community channel. The discussion still lives in its own
-  // channel; General only surfaces it here.
-  const discoveryGroups = useMemo(
-    () => buildDiscoveryGroups(allDiscussions, getMemberCount),
-    [allDiscussions, getMemberCount]
-  );
 
   const getUnread = (slug) => unreadCounts[slug] || 0;
   const totalUnread = useMemo(() => Object.entries(unreadCounts).filter(([k]) => isNaN(Number(k))).reduce((a, [, v]) => a + v, 0), [unreadCounts]);
 
-  // ─ What's Happening Nearby — navigation always follows the currently
-  // displayed notification's own destination data, never a fixed handler.
-  const handleHighlightSelect = (item) => {
-    if (!item) return;
-    if (item.destinationType === 'discussion') {
-      const exists = allDiscussions.find(d => d.id === item.destination);
-      if (exists) { setActiveDiscussionId(item.destination); return; }
-    }
-    // page / ride / pg / marketplace / event / job → app-level navigation
-    onNavigate?.(item.destination);
-  };
+  const stripChannelsAll = CHANNELS.filter(ch => activityChannels.includes(ch.slug));
+  const stripChannels = stripChannelsAll.slice(0, 5);
+  const hasMoreThanFive = stripChannelsAll.length > 5;
 
-  const notifItems = CHANNELS
-    .filter(ch => activityChannels.includes(ch.slug) && getUnread(ch.slug) > 0)
+  const notifItems = stripChannelsAll
+    .filter(ch => getUnread(ch.slug) > 0)
     .map(ch => ({ icon: ch.icon, channel: ch.name, text: 'has new activity', count: getUnread(ch.slug) }));
 
   return (
     <CommunityLayout>
       <AnimatePresence>
-        {showDrawer && <CommunityDrawer isAdmin={isAdmin} onClose={() => setShowDrawer(false)} />}
+        {showDrawer && <CommunityDrawer channels={channels} activeChannelId={activeChannelId} unreadCounts={unreadCounts} onSelect={handleSelect} onClose={() => setShowDrawer(false)} />}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -493,18 +351,23 @@ export default function Community({ onNavigate }) {
         onPostClick={() => setShowModal(true)}
       />
 
-      <LiveActivityStrip
-        channels={channels}
-        activeChannelId={activeChannelId}
-        getUnread={getUnread}
-        onSelect={handleSelect}
+      <ChannelHeader
+        activeMeta={activeMeta}
+        activeName={activeName}
+        isChat={isChat}
+        collapsedHeader={collapsedHeader}
+        onToggleCollapsed={() => setCollapsedHeader(c => !c)}
       />
 
-      <ChannelNavigation
+      <LiveActivityStrip
+        collapsedHeader={collapsedHeader}
+        stripChannels={stripChannels}
+        hasMoreThanFive={hasMoreThanFive}
         channels={channels}
         activeChannelId={activeChannelId}
         getUnread={getUnread}
         onSelect={handleSelect}
+        onMoreClick={() => setShowDrawer(true)}
       />
 
       {!isChat && (
@@ -516,79 +379,63 @@ export default function Community({ onNavigate }) {
         />
       )}
 
-      {/* ── Channel content ── */}
-      {isGeneral ? (
-        <GeneralExperience
-          onlineCount={generalOnlineCount}
-          latestMessage={latestChatMessage}
-          onJoinChat={() => setShowChatScreen(true)}
-          onSelectHighlight={handleHighlightSelect}
-          highlightDiscussions={discoveryGroups.trending.length > 0 ? discoveryGroups.trending : discoveryGroups.recentlyActive}
-          trending={{ items: discoveryGroups.trending, loading: discussionsLoading }}
-          recentlyActive={{ items: discoveryGroups.recentlyActive, loading: discussionsLoading }}
-          popular={{ items: discoveryGroups.popular, loading: discussionsLoading }}
-          getChannelMeta={getChannelMeta}
-          getMemberCount={getMemberCount}
-          onJoinDiscussion={(id) => setActiveDiscussionId(id)}
-          onCreateDiscussion={() => setShowCreateDiscussion(true)}
-        />
-      ) : isDiscussionChannel ? (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-          <DiscussionSection
-            mode="channel"
-            channelSlug={activeSlug}
-            channelMeta={activeMeta}
-            discussions={sortedChannelDiscussions}
-            loading={discussionsLoading}
-            sort={discussionSort}
-            onSortChange={setDiscussionSort}
-            getChannelMeta={getChannelMeta}
-            getMemberCount={getMemberCount}
-            onJoin={(id) => setActiveDiscussionId(id)}
-            onCreate={() => setShowCreateDiscussion(true)}
-          />
-        </div>
-      ) : (
-        <ChannelPlaceholder activeMeta={activeMeta} activeName={activeName} />
-      )}
-
-      <AnimatePresence>
-        {showChatScreen && (
-          <CommunityChatScreen
-            onBack={() => setShowChatScreen(false)}
-            posts={posts}
-            initialLoad={initialLoad}
-            user={user}
-            onDelete={handleDelete}
-            onPost={handleChatPost}
-            onlineCount={generalOnlineCount}
-          />
+      {/* ── Feed ── */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: isChat ? 'hidden' : 'auto', padding: isChat ? '14px 14px 0' : '14px 14px calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 14px)', display: 'flex', flexDirection: 'column' }}>
+        {refreshing && posts.length === 0 && (
+          <div style={{ height: 3, background: '#EDE9FF', borderRadius: 3, marginBottom: 14, overflow: 'hidden' }}>
+            <motion.div animate={{ x: ['-100%', '100%'] }} transition={{ duration: 1.1, repeat: Infinity, ease: 'linear' }} style={{ height: '100%', width: '40%', background: 'linear-gradient(90deg, #6D4AFF, #9B6AFF)', borderRadius: 3 }} />
+          </div>
         )}
-      </AnimatePresence>
 
-      <AnimatePresence>
-        {activeDiscussion && (
-          <DiscussionRoom
-            key={activeDiscussion.id}
-            discussion={activeDiscussion}
-            user={user}
-            onBack={() => setActiveDiscussionId(null)}
-            onLeave={() => setActiveDiscussionId(null)}
-            onMessage={handleDiscussionMessage}
-          />
+        {isChat && (
+          <div style={{ flex: 1 }}>
+            {initialLoad ? <PostSkeleton /> : <GeneralChat posts={posts} user={user} onDelete={handleDelete} onPost={handleChatPost} />}
+          </div>
         )}
-      </AnimatePresence>
 
-      <AnimatePresence>
-        {showCreateDiscussion && (
-          <CreateDiscussionSheet
-            onClose={() => setShowCreateDiscussion(false)}
-            onCreate={handleCreateDiscussion}
-            defaultChannelSlug={activeSlug}
-            submitting={creatingDiscussion}
-          />
+        {!isChat && (
+          <>
+            {initialLoad ? <PostSkeleton /> :
+              posts.length === 0 ? (
+                <EmptyState chMeta={activeMeta} activeName={activeName} search={search}
+                  onPost={() => user ? setShowModal(true) : onNavigate?.('auth')}
+                  onClear={() => {}} />
+              ) : (
+                <AnimatePresence>
+                  {posts.map(post => (
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      user={user}
+                      channels={channels}
+                      userVote={userVotes[post.id] ?? null}
+                      isSaved={!!savedPosts[post.id]}
+                      onVote={handleVote}
+                      onSave={handleSave}
+                      onDelete={handleDelete}
+                      onEdit={handlePostEdited}
+                      onReport={handleReport}
+                      onRestore={handleRestore}
+                      isAdmin={isAdmin}
+                      viewAnyway={!!viewAnyway[post.id]}
+                      onViewAnyway={handleViewAnyway}
+                    />
+                  ))}
+                </AnimatePresence>
+              )
+            }
+
+            <div ref={loaderRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: 48 }}>
+              {refreshing && posts.length > 0 && (
+                <div style={{ display: 'flex', gap: 5, padding: '14px 0' }}>
+                  {[0,1,2].map(i => <motion.div key={i} animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }} transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.2 }} style={{ width: 7, height: 7, borderRadius: '50%', background: '#6D4AFF' }} />)}
+                </div>
+              )}
+              {!hasMore && posts.length > 0 && !refreshing && <AllCaughtUp />}
+            </div>
+          </>
         )}
-      </AnimatePresence>
+      </div>
 
       <AnimatePresence>
         {showModal && (

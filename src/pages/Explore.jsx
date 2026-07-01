@@ -835,13 +835,13 @@ export default function Explore({ onNavigate }) {
       {/* STICKY HEADER */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 100, background: C.white,
-        borderBottom: `1px solid ${C.border}`, boxShadow: '0 4px 24px rgba(109,74,255,0.06)',
+        boxShadow: '0 4px 24px rgba(109,74,255,0.06)',
       }}>
-        <div style={{ padding: '16px 20px 0' }}>
+        <div style={{ padding: '8px 20px 0' }}>
           {/* Title row */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 15 }}>
             <div>
-              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, color: C.text, margin: 0, letterSpacing: -0.7, lineHeight: 1.15 }}>Explore</h1>
+              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800, color: C.text, margin: 0, letterSpacing: -0.5, lineHeight: 1.15 }}>Explore</h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                 <span style={{ fontSize: 13, color: C.textMuted }}>Discover everything in</span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: C.purple }}>Green Sector</span>
@@ -936,15 +936,15 @@ export default function Explore({ onNavigate }) {
       <motion.section
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
-        style={{ padding: '20px 16px 8px' }}
+        style={{ padding: '17px 16px 8px' }}
       >
         {/* Outer wrapper adds paddingTop so the first row's overflowing icons aren't clipped by the sticky header */}
-        <div style={{ paddingTop: 18 }}>
+        <div style={{ paddingTop: 1 }}>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
             columnGap: 11,
-            rowGap: 28,          /* ← wider row gap prevents bottom icons touching top cards */
+            rowGap: 12,          /* ← wider row gap prevents bottom icons touching top cards */
           }}>
             {CATEGORY_GRID.map((cat, i) => {
               const active = activeCategory === cat.id;
@@ -989,8 +989,8 @@ export default function Explore({ onNavigate }) {
                     position: 'absolute',
                     top: 0,
                     left: '50%',
-                    transform: 'translateX(-50%) translateY(-52%)',  /* ← pushes icon up above card edge */
-                    width: '88%',
+                    transform: 'translateX(-50%) translateY(-34%)',  /* ← pushes icon up above card edge */
+                    width: '92%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1017,7 +1017,7 @@ export default function Explore({ onNavigate }) {
 
                   {/* Label — always visible at bottom of card */}
                   <span style={{
-                    fontSize: 11.5, fontWeight: 700,
+                    fontSize: 13.8, fontWeight: 700,
                     color: active ? C.purple : C.text,
                     whiteSpace: 'nowrap', letterSpacing: -0.1,
                     lineHeight: 1,
@@ -1033,7 +1033,7 @@ export default function Explore({ onNavigate }) {
       </motion.section>
 
       {/* MUST TRY */}
-      <motion.section {...fu(0)} style={{ marginTop: 28, marginBottom: 8 }}>
+      <motion.section {...fu(0)} style={{ marginTop: 20, marginBottom: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', marginBottom: 16 }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: C.text, margin: 0, letterSpacing: -0.4 }}>
             Must Try in Bangalore ✨
