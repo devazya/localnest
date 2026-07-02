@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Avatar from './Avatar';
 import CommunityComposer from './CommunityComposer';
 import AnimatedNumber from './AnimatedNumber';
+import MentionText from './MentionText';
 
 export default function GeneralChat({ posts, user, onDelete, onPost, onlineCount = 0 }) {
   const [text, setText]             = useState('');
@@ -62,7 +63,7 @@ export default function GeneralChat({ posts, user, onDelete, onPost, onlineCount
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#0D0820' }}>{isAnon ? 'Anonymous' : (profile?.full_name || profile?.username || 'User')}</span>
                   <span style={{ fontSize: 11, color: '#9CA3AF' }}>{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
-                <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.55, wordBreak: 'break-word' }}>{msg.title || msg.body}</div>
+                <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.55, wordBreak: 'break-word' }}><MentionText text={msg.title || msg.body} /></div>
                 {msg.like_count > 0 && <div style={{ display: 'flex', gap: 5, marginTop: 4 }}><span style={{ fontSize: 12.5, background: '#F3F0FF', borderRadius: 999, padding: '2px 8px', color: '#374151' }}>👍 {msg.like_count}</span></div>}
               </div>
               {isMe && <button onClick={() => onDelete(msg.id)} style={{ background: 'none', border: 'none', fontSize: 12, color: '#DC2626', cursor: 'pointer', opacity: 0.4, padding: '2px 4px', flexShrink: 0 }}>✕</button>}

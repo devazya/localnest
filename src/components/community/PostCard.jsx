@@ -12,6 +12,7 @@ import Avatar from './Avatar';
 import EditPostModal from './EditPostModal';
 import ReportModal from './ReportModal';
 import PostChat from './PostChat';
+import MentionText from './MentionText';
 
 export default function PostCard({ post, user, channels, userVote, isSaved, onVote, onSave, onDelete, onEdit, onReport, onRestore, isAdmin, viewAnyway, onViewAnyway }) {
   const [showChat, setShowChat]   = useState(false);
@@ -115,7 +116,7 @@ export default function PostCard({ post, user, channels, userVote, isSaved, onVo
         </div>
 
         <div style={{ fontSize: 15.5, fontWeight: 700, color: '#0D0820', marginBottom: 8, lineHeight: 1.4, fontFamily: 'var(--font-display)' }}>{post.title}</div>
-        {post.body && <div style={{ fontSize: 13.5, color: '#4B5563', lineHeight: 1.7, marginBottom: 10 }}>{post.body}</div>}
+        {post.body && <div style={{ fontSize: 13.5, color: '#4B5563', lineHeight: 1.7, marginBottom: 10 }}><MentionText text={post.body} /></div>}
 
         {/* Type-specific metadata chips */}
         {post.post_type !== 'post' && post.metadata && Object.keys(post.metadata).length > 0 && (

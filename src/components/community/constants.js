@@ -29,10 +29,10 @@ export const CHANNELS = [
     glowColor: 'rgba(109,74,255,0.18)', type: 'chat',
   },
   {
-    slug: 'announcements', name: 'Announcements', icon: AnnouncementDiscussionIcon,
-    desc: 'Official updates & notices', color: '#D97706',
+    slug: 'neighbourhood-updates', name: 'Neighbourhood Updates', icon: AnnouncementDiscussionIcon,
+    desc: 'Important updates from your locality', color: '#D97706',
     bg: 'linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%)',
-    glowColor: 'rgba(217,119,6,0.15)', type: 'card',
+    glowColor: 'rgba(217,119,6,0.15)', type: 'neighbourhood-updates',
   },
   {
     slug: 'ride-sharing', name: 'Ride Sharing', icon: RideDiscussionIcon,
@@ -95,6 +95,15 @@ export const REPORT_REASONS = [
   { key: 'other',       label: 'Wrong Category' },
 ];
 
+export const PROFILE_REPORT_REASONS = [
+  { key: 'fake',           label: 'Fake Profile' },
+  { key: 'impersonation',  label: 'Impersonation' },
+  { key: 'harassment',     label: 'Harassment / Abuse' },
+  { key: 'spam',           label: 'Spam' },
+  { key: 'inappropriate',  label: 'Inappropriate Content' },
+  { key: 'other',          label: 'Other' },
+];
+
 export const POST_TYPES = [
   { id: 'post',          title: 'Post',          desc: 'Share something with the community' },
   { id: 'ride_offer',     title: 'Ride Offer',    desc: 'Offer seats on a ride',   rideChannelsOnly: true },
@@ -105,9 +114,39 @@ export const POST_TYPES = [
   { id: 'announcement',   title: 'Announcement',  desc: 'Official notice (admins)', adminOnly: true },
 ];
 
+// ─── Neighbourhood Updates (Segment 4) ──────────────────────────────────────
+export const NU_CATEGORIES = [
+  { id: 'Emergency',           label: 'Emergency',      emoji: '🚨', color: '#DC2626', bg: '#FEF2F2' },
+  { id: 'Society',             label: 'Society',        emoji: '🏠', color: '#7C3AED', bg: '#F5F3FF' },
+  { id: 'Maintenance',         label: 'Maintenance',    emoji: '🔧', color: '#D97706', bg: '#FEF3C7' },
+  { id: 'Business',            label: 'Business',       emoji: '🍕', color: '#EA580C', bg: '#FFEDD5' },
+  { id: 'Sports',              label: 'Sports',         emoji: '🏸', color: '#0284C7', bg: '#E0F2FE' },
+  { id: 'Events',              label: 'Events',         emoji: '🎉', color: '#DB2777', bg: '#FCE7F3' },
+  { id: 'Housing',             label: 'Housing',        emoji: '🏡', color: '#16A34A', bg: '#DCFCE7' },
+  { id: 'Jobs',                label: 'Jobs',           emoji: '💼', color: '#B45309', bg: '#FEF3C7' },
+  { id: 'Lost & Found',        label: 'Lost & Found',   emoji: '🐾', color: '#6D4AFF', bg: '#EDE9FF' },
+  { id: 'Community',           label: 'Community',      emoji: '❤️', color: '#E11D48', bg: '#FFF1F2' },
+  { id: 'General Information', label: 'General Info',   emoji: '📢', color: '#0891B2', bg: '#ECFEFF' },
+];
+
+export const NU_WHAT_CAN_I_POST_EXAMPLES = [
+  { emoji: '🏠', role: 'PG Owner',           example: '2 rooms available from next month.' },
+  { emoji: '🛠', role: 'Society Management',  example: 'Water supply will be unavailable tomorrow from 10 AM–2 PM.' },
+  { emoji: '🏸', role: 'Sports Club',         example: 'Badminton tournament this Sunday. Registrations are open.' },
+  { emoji: '🍕', role: 'Local Business',      example: '20% discount on all pizzas this weekend.' },
+  { emoji: '🚨', role: 'Resident Alert',      example: 'Phone stolen near Gate 2. Please stay cautious.' },
+  { emoji: '🔧', role: 'Maintenance',         example: 'Lift maintenance scheduled from 2 PM–5 PM.' },
+  { emoji: '🎉', role: 'Community Event',     example: 'Weekend flea market this Saturday.' },
+  { emoji: '❤️', role: 'Emergency',           example: 'Urgently need O+ blood donor.' },
+  { emoji: '🐾', role: 'Lost & Found',        example: 'Found a Labrador near Block C.' },
+  { emoji: '📢', role: 'Local Information',   example: 'New grocery store opening this Friday.' },
+];
+
+export const NU_GUIDE_SEEN_KEY = 'localnest:nu_guide_seen';
+
 // ─── Discussion Ecosystem (Segment 3) ───────────────────────────────────────
-// Community channels that support Discussions. Announcements is excluded —
-// it stays a posts-only, admin-authored channel (existing behavior).
+// Community channels that support Discussions. neighbourhood-updates is excluded —
+// it has its own dedicated feed experience (Segment 4).
 export const DISCUSSION_CHANNEL_SLUGS = [
   'general', 'sports', 'ride-sharing', 'events', 'buy-sell', 'jobs', 'help', 'lost-and-found',
 ];
@@ -132,7 +171,7 @@ export const DEFAULT_DISCUSSION_CATEGORIES = ['General', 'Other'];
 // real PNG icon instead; the room header stays a light emoji touch).
 export const CHANNEL_EMOJI = {
   general: '💬', sports: '🏸', 'ride-sharing': '🚗', events: '🎉',
-  'buy-sell': '🛍️', jobs: '💼', help: '🆘', 'lost-and-found': '🔎', announcements: '📢',
+  'buy-sell': '🛍️', jobs: '💼', help: '🆘', 'lost-and-found': '🔎', 'neighbourhood-updates': '🏡',
 };
 
 export const DISCUSSION_SORT_OPTIONS = [

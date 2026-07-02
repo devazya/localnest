@@ -36,14 +36,14 @@ function LiveActivityCard({ ch, isActive, unread, onClick }) {
         flexShrink: 0,
         scrollSnapAlign: 'start',
         width: 116,
-        height: 96,
+        height: 108,
         borderRadius: 24,
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 4,
+        gap: 6,
         padding: '12px 10px',
         background: isActive
           ? 'linear-gradient(160deg, #FFFFFF 0%, #F5F3FF 100%)'
@@ -68,7 +68,15 @@ function LiveActivityCard({ ch, isActive, unread, onClick }) {
         }}>LIVE</span>
       )}
 
-      <img src={ch.icon} alt={ch.name} style={{ width: 38, height: 38, objectFit: 'contain' }} />
+      {/* Icon container — the icon itself fills 70% of this box so it reads
+          clearly at a glance instead of looking lost inside the card. */}
+      <div style={{
+        width: 52, height: 52, borderRadius: 16, flexShrink: 0,
+        background: isActive ? `${ch.color}1F` : (ch.bg || 'linear-gradient(135deg, #F4F2FF, #EDE9FF)'),
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <img src={ch.icon} alt={ch.name} style={{ width: '70%', height: '70%', objectFit: 'contain' }} />
+      </div>
       <span style={{ fontSize: 12, fontWeight: isActive ? 700 : 600, color: isActive ? ch.color : '#374151', whiteSpace: 'nowrap' }}>{ch.name}</span>
       {meta.count && <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 500 }}>{meta.count}</span>}
     </motion.button>

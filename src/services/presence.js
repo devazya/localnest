@@ -46,7 +46,10 @@ function attach(entry, roomKey) {
       (metas || []).forEach((m) => { if (m?.user_id) seen.add(m.user_id); });
     });
     const count = seen.size > 0 ? seen.size : Object.keys(state).length;
-    entry.listeners.forEach((fn) => fn(count));
+    // Pass (count, members[]) — listeners that only accept count still work
+    // because extra arguments are silently ignored in JavaScript.
+    const members = Array.from(seen);
+    entry.listeners.forEach((fn) => fn(count, members));
   };
 
   entry.channel

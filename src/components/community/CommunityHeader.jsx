@@ -15,7 +15,13 @@ function IconButton({ onClick, children, size = 44, active }) {
   return (
     <motion.button
       onClick={onClick}
-      whileTap={{ scale: 0.92 }}
+      whileTap={{
+        scale: 0.94,
+        y: 2,
+        boxShadow: active
+          ? '0 1px 0 rgba(109,74,255,0.30), inset 0 1px 3px rgba(0,0,0,0.08)'
+          : '0 1px 0 rgba(109,74,255,0.12), inset 0 1px 3px rgba(0,0,0,0.06)',
+      }}
       whileHover={{ y: -1 }}
       style={{
         width: size,
@@ -24,15 +30,30 @@ function IconButton({ onClick, children, size = 44, active }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: active ? 'rgba(109,74,255,0.12)' : 'rgba(255,255,255,0.78)',
+        background: active
+          ? 'linear-gradient(145deg, rgba(109,74,255,0.16), rgba(109,74,255,0.08))'
+          : 'linear-gradient(145deg, #FFFFFF, #F5F3FF)',
         backdropFilter: 'blur(10px)',
         WebkitBackdropFilter: 'blur(10px)',
-        border: active ? '1.5px solid rgba(109,74,255,0.28)' : '1.5px solid rgba(109,74,255,0.10)',
-        boxShadow: active ? '0 4px 14px rgba(109,74,255,0.16)' : '0 2px 10px rgba(109,74,255,0.07)',
+        border: active ? '1.5px solid rgba(109,74,255,0.30)' : '1.5px solid rgba(109,74,255,0.12)',
+        // 3D: colored floor shadow + top highlight
+        boxShadow: active
+          ? [
+              '0 4px 0 rgba(109,74,255,0.28)',
+              '0 6px 16px rgba(109,74,255,0.16)',
+              'inset 0 1px 0 rgba(255,255,255,0.60)',
+            ].join(', ')
+          : [
+              '0 4px 0 rgba(109,74,255,0.12)',
+              '0 2px 10px rgba(109,74,255,0.08)',
+              'inset 0 1px 0 rgba(255,255,255,0.95)',
+            ].join(', '),
         cursor: 'pointer',
         flexShrink: 0,
         position: 'relative',
-        transition: 'background 0.18s, border-color 0.18s, box-shadow 0.18s',
+        outline: 'none',
+        WebkitTapHighlightColor: 'transparent',
+        transition: 'background 0.18s, border-color 0.18s, box-shadow 0.18s, transform 0.18s',
       }}
     >
       {children}
@@ -113,8 +134,8 @@ export default function CommunityHeader({
 
           <motion.button
             onClick={() => user ? onPostClick() : onNavigate?.('auth')}
-            whileTap={{ scale: 0.92 }}
-            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.94, y: 3, boxShadow: '0 1px 0 rgba(80,30,220,0.60), 0 4px 10px rgba(109,74,255,0.28), inset 0 1px 2px rgba(0,0,0,0.10)' }}
+            whileHover={{ y: -2 }}
             style={{
               width: 48,
               height: 48,
@@ -122,11 +143,19 @@ export default function CommunityHeader({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'linear-gradient(135deg, #6D4AFF 0%, #9B6AFF 100%)',
+              background: 'linear-gradient(145deg, #8B6FFF 0%, #6D4AFF 60%, #5B35EE 100%)',
               border: 'none',
-              boxShadow: '0 6px 20px rgba(109,74,255,0.42)',
+              // Strong 3D floor for the main CTA button
+              boxShadow: [
+                '0 5px 0 rgba(80,30,200,0.55)',
+                '0 8px 20px rgba(109,74,255,0.40)',
+                'inset 0 1px 0 rgba(255,255,255,0.28)',
+              ].join(', '),
               cursor: 'pointer',
               flexShrink: 0,
+              outline: 'none',
+              WebkitTapHighlightColor: 'transparent',
+              transition: 'box-shadow 0.15s, transform 0.15s',
             }}
             aria-label="Create Post"
           >

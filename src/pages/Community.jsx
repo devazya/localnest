@@ -27,7 +27,6 @@ import {
 import CommunityLayout from '../components/community/CommunityLayout';
 import CommunityHeader from '../components/community/CommunityHeader';
 import CommunityDrawer from '../components/community/CommunityDrawer';
-import LiveActivityStrip from '../components/community/LiveActivityStrip';
 import ChannelNavigation from '../components/community/ChannelNavigation';
 import CommunityFilters from '../components/community/CommunityFilters';
 import FilterSheet from '../components/community/FilterSheet';
@@ -39,6 +38,7 @@ import DiscussionSection from '../components/community/DiscussionSection';
 import CommunityChatScreen from '../components/community/CommunityChatScreen';
 import DiscussionRoom from '../components/community/DiscussionRoom';
 import CreateDiscussionSheet from '../components/community/CreateDiscussionSheet';
+import NeighbourhoodUpdates from '../components/community/NeighbourhoodUpdates';
 
 const POST_SELECT = `id,author_id,channel_id,channel_slug,title,body,image_urls,is_anonymous,is_pinned,like_count,downvote_count,comment_count,post_type,metadata,is_removed,report_count,created_at,updated_at,profiles:author_id(id,full_name,username,avatar_url,is_verified)`;
 
@@ -379,16 +379,24 @@ export default function Community({ onNavigate }) {
   const activeSlug     = activeChannel?.slug || '';
   const activeName     = activeChannel?.name || 'Community';
   const activeMeta     = getChannelMeta(activeSlug);
-  const isChat         = activeMeta?.type === 'chat';
-  const isGeneral      = activeSlug === 'general';
-  const isDiscussionChannel = !isGeneral && DISCUSSION_CHANNEL_SLUGS.includes(activeSlug);
+  const isChat              = activeMeta?.type === 'chat';
+  const isGeneral           = activeSlug === 'general';
+  const isNeighbourhoodUpdates = activeSlug === 'neighbourhood-updates';
+  const isDiscussionChannel = !isGeneral && !isNeighbourhoodUpdates && DISCUSSION_CHANNEL_SLUGS.includes(activeSlug);
 
+  // Pass up to 8 recent chat messages as an array so CommunityChatCard
+  // can cycle through them every 2 s like a live ticker.
   const latestChatMessage = useMemo(() => {
-    if (!isGeneral || posts.length === 0) return null;
-    const last = posts[posts.length - 1];
-    const name = last.is_anonymous ? 'Anonymous' : (last.profiles?.full_name || last.profiles?.username || 'Someone');
-    const text = last.title || last.body || '';
-    return text ? { name, text } : null;
+    if (!isGeneral || posts.length === 0) return [];
+    return posts
+      .slice(-8)          // last 8 posts
+      .reverse()          // newest first
+      .map(p => {
+        const name = p.is_anonymous ? 'Anonymous' : (p.profiles?.full_name || p.profiles?.username || 'Someone');
+        const text = p.title || p.body || '';
+        return text ? { name, text } : null;
+      })
+      .filter(Boolean);
   }, [isGeneral, posts]);
 
   const activeDiscussion = allDiscussions.find(d => d.id === activeDiscussionId) || null;
@@ -493,13 +501,6 @@ export default function Community({ onNavigate }) {
         onPostClick={() => setShowModal(true)}
       />
 
-      <LiveActivityStrip
-        channels={channels}
-        activeChannelId={activeChannelId}
-        getUnread={getUnread}
-        onSelect={handleSelect}
-      />
-
       <ChannelNavigation
         channels={channels}
         activeChannelId={activeChannelId}
@@ -507,7 +508,7 @@ export default function Community({ onNavigate }) {
         onSelect={handleSelect}
       />
 
-      {!isChat && (
+      {!isChat && !isNeighbourhoodUpdates && (
         <CommunityFilters
           sort={sort}
           setSort={setSort}
@@ -522,8 +523,12 @@ export default function Community({ onNavigate }) {
           onlineCount={generalOnlineCount}
           latestMessage={latestChatMessage}
           onJoinChat={() => setShowChatScreen(true)}
-          onSelectHighlight={handleHighlightSelect}
-          highlightDiscussions={discoveryGroups.trending.length > 0 ? discoveryGroups.trending : discoveryGroups.recentlyActive}
+          tickerDiscussions={discoveryGroups.trending.length > 0 ? discoveryGroups.trending : discoveryGroups.recentlyActive}
+          onNavigate={(dest, id) => {
+            if (dest === 'general-chat') { setShowChatScreen(true); return; }
+            if (dest === 'discussion' && id) { setActiveDiscussionId(id); return; }
+            onNavigate?.(dest);
+          }}
           trending={{ items: discoveryGroups.trending, loading: discussionsLoading }}
           recentlyActive={{ items: discoveryGroups.recentlyActive, loading: discussionsLoading }}
           popular={{ items: discoveryGroups.popular, loading: discussionsLoading }}
@@ -531,6 +536,7 @@ export default function Community({ onNavigate }) {
           getMemberCount={getMemberCount}
           onJoinDiscussion={(id) => setActiveDiscussionId(id)}
           onCreateDiscussion={() => setShowCreateDiscussion(true)}
+          viewerId={user?.id}
         />
       ) : isDiscussionChannel ? (
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -548,6 +554,12 @@ export default function Community({ onNavigate }) {
             onCreate={() => setShowCreateDiscussion(true)}
           />
         </div>
+      ) : isNeighbourhoodUpdates ? (
+        <NeighbourhoodUpdates
+          channel={activeChannel}
+          user={user}
+          isAdmin={isAdmin}
+        />
       ) : (
         <ChannelPlaceholder activeMeta={activeMeta} activeName={activeName} />
       )}

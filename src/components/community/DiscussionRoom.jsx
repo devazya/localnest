@@ -15,6 +15,7 @@ import { timeAgo } from './utils';
 import { CHANNEL_EMOJI } from './constants';
 import { usePresenceCount } from '../../hooks/usePresence';
 import AnimatedNumber from './AnimatedNumber';
+import MentionText from './MentionText';
 
 export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMessage }) {
   const [messages, setMessages] = useState(() => discussion.seedMessages || []);
@@ -85,7 +86,7 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
                     <span style={{ fontSize: 13, fontWeight: 700, color: '#0D0820' }}>{msg.profiles?.full_name || msg.profiles?.username || 'User'}</span>
                     <span style={{ fontSize: 11, color: '#9CA3AF' }}>{timeAgo(msg.created_at)}</span>
                   </div>
-                  <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.55, wordBreak: 'break-word' }}>{msg.title}</div>
+                  <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.55, wordBreak: 'break-word' }}><MentionText text={msg.title} /></div>
                 </div>
               </div>
             );
