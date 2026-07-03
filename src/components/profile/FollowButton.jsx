@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { followUser, unfollowUser } from '../../services/followers';
 
-export default function FollowButton({ viewerId, targetId, isFollowing, onChange, size = 'md' }) {
+export default function FollowButton({ viewerId, targetId, isFollowing, onChange, size = 'md', fullWidth = false }) {
   const [busy, setBusy] = useState(false);
   const disabled = !viewerId || viewerId === targetId || busy;
 
@@ -40,6 +40,7 @@ export default function FollowButton({ viewerId, targetId, isFollowing, onChange
         fontSize: font,
         fontWeight: 700,
         borderRadius: 999,
+        width: fullWidth ? '100%' : undefined,
         cursor: disabled ? 'default' : 'pointer',
         border: isFollowing ? '1.5px solid #E5E7EB' : '1.5px solid transparent',
         background: isFollowing ? '#fff' : 'linear-gradient(135deg, #6D4AFF 0%, #8F7BFF 100%)',

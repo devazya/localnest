@@ -8,11 +8,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const TABS = [
   { key: 'overview',     label: 'Overview' },
-  { key: 'updates',      label: 'Updates' },
-  { key: 'discussions',  label: 'Discussions' },
+  { key: 'updates',      label: 'Activity' },
+  { key: 'discussions',  label: 'Community' },
   { key: 'marketplace',  label: 'Marketplace' },
-  { key: 'events',       label: 'Events' },
-  { key: 'comments',     label: 'Comments' },
 ];
 
 function Placeholder({ label }) {
@@ -31,7 +29,7 @@ function Placeholder({ label }) {
   );
 }
 
-export default function ProfileTabs({ activeKey, onChange, overviewContent }) {
+export default function ProfileTabs({ activeKey, onChange, overviewContent, activityContent }) {
   return (
     <div>
       <div style={{ display: 'flex', gap: 4, overflowX: 'auto', padding: '4px 20px', borderBottom: '1.5px solid #F0EEFF', scrollbarWidth: 'none' }}>
@@ -67,6 +65,8 @@ export default function ProfileTabs({ activeKey, onChange, overviewContent }) {
         >
           {activeKey === 'overview'
             ? overviewContent
+            : activeKey === 'updates'
+            ? (activityContent || <Placeholder label="Activity" />)
             : <Placeholder label={TABS.find(t => t.key === activeKey)?.label} />}
         </motion.div>
       </AnimatePresence>

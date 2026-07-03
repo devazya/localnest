@@ -115,6 +115,38 @@ export function computeNeighbourScore(stats) {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
+// ─── Sector standing — real "Top X% in <locality>" ─────────────────────────
+
+/**
+ * Ranks a resident's Neighbour Score against every other resident who
+ * shares their locality. Entirely derived from real profiles + real
+ * contribution stats — no fabricated numbers. With very few residents in
+ * a locality this will read "Top 100%" (i.e. everyone), which is the
+ * honest answer until more neighbours join and sign up.
+ */
+export async function fetchSectorStanding(userId, locality) {
+  if (!userId || !locality) return null;
+
+  const { data: peers, error } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('locality', locality);
+  if (error || !peers || peers.length === 0) return null;
+
+  const scored = await Promise.all(peers.map(async (p) => {
+    const stats = await fetchContributionStats(p.id);
+    return { id: p.id, score: computeNeighbourScore(stats) };
+  }));
+
+  const total = scored.length;
+  const mine = scored.find(s => s.id === userId);
+  const myScore = mine ? mine.score : 0;
+  const countAtOrAbove = scored.filter(s => s.score >= myScore).length;
+  const topPercent = Math.max(1, Math.round((countAtOrAbove / total) * 100));
+
+  return { topPercent, total, locality };
+}
+
 export const TRUST_LEVELS = [
   { min: 81, max: 100, label: 'Trusted Resident' },
   { min: 61, max: 80,  label: 'Helpful Neighbour' },
@@ -150,15 +182,15 @@ export async function fetchVerifications(userId, profile) {
 // ─── Badges — reusable, derived (no separate mutable table to drift) ───────
 
 export const BADGE_CATALOG = {
-  helpful_neighbour: { icon: '❤️', label: 'Helpful Neighbour' },
-  sports_organizer:  { icon: '🏸', label: 'Sports Organizer' },
-  ride_champion:     { icon: '🚗', label: 'Ride Champion' },
-  trusted_pg_owner:  { icon: '🏡', label: 'Trusted PG Owner' },
-  verified_seller:   { icon: '🛒', label: 'Verified Seller' },
-  early_member:      { icon: '⭐', label: 'Early Member' },
-  volunteer:         { icon: '🛠', label: 'Volunteer' },
-  event_host:        { icon: '🎉', label: 'Event Host' },
-  community_helper:  { icon: '💬', label: 'Community Helper' },
+  helpful_neighbour: { icon: '⭐', label: 'Helpful Neighbour', bg: '#FFF3D6', iconBg: '#FFD669' },
+  sports_organizer:  { icon: '🏸', label: 'Sports Organizer',  bg: '#F0ECFF', iconBg: '#DCD1FF' },
+  ride_champion:     { icon: '🚗', label: 'Ride Champion',     bg: '#FFE4E4', iconBg: '#FF8A8A' },
+  trusted_pg_owner:  { icon: '🏡', label: 'Trusted PG Owner',  bg: '#E3F7EC', iconBg: '#8FE0B4' },
+  verified_seller:   { icon: '🛒', label: 'Verified Seller',   bg: '#E3F1FF', iconBg: '#8FC4FF' },
+  early_member:      { icon: '⭐', label: 'Early Member',      bg: '#FFF3D6', iconBg: '#FFD669' },
+  volunteer:         { icon: '🛠', label: 'Volunteer',         bg: '#E6F7F5', iconBg: '#7FDDD4' },
+  event_host:        { icon: '🎉', label: 'Event Host',        bg: '#FDE4F3', iconBg: '#F5A0D6' },
+  community_helper:  { icon: '💬', label: 'Community Helper',  bg: '#E3F1FF', iconBg: '#8FC4FF' },
 };
 
 const EARLY_MEMBER_CUTOFF = new Date('2026-08-01T00:00:00Z');

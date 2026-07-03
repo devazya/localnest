@@ -16,7 +16,6 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import ProfileTabs from '../components/profile/ProfileTabs';
-import NeighbourScoreCard from '../components/profile/NeighbourScoreCard';
 import ContributionStats from '../components/profile/ContributionStats';
 import ContributionTimeline from '../components/profile/ContributionTimeline';
 import BadgeRow from '../components/profile/BadgeRow';
@@ -28,6 +27,7 @@ import {
 import {
   fetchContributionStats, totalContributions, computeNeighbourScore, getTrustLevel,
   fetchVerifications, computeBadges, fetchContributionTimeline, subscribeToReputationChanges,
+  fetchSectorStanding,
 } from '../services/reputation';
 
 export default function Profile({ userId: routeUserId, onNavigate }) {
@@ -48,6 +48,7 @@ export default function Profile({ userId: routeUserId, onNavigate }) {
   const [timeline, setTimeline]       = useState([]);
   const [timelineLoading, setTimelineLoading] = useState(true);
   const [badgeSheetOpen, setBadgeSheetOpen]   = useState(false);
+  const [standing, setStanding]       = useState(null);
 
   const reload = useCallback(async () => {
     if (!targetId) return;
@@ -75,6 +76,10 @@ export default function Profile({ userId: routeUserId, onNavigate }) {
       setStats(s);
       setVerifications(verifs);
       setTimeline(tl);
+      // Real "Top X% in <locality>" — needs the profile's locality, so it's
+      // fetched after the profile itself resolves. Silently skipped (null)
+      // when there's no locality set.
+      fetchSectorStanding(targetId, currentProfile?.locality).then(setStanding).catch(() => setStanding(null));
     } catch (err) {
       console.error('Failed to load reputation data:', err);
     } finally {
@@ -154,16 +159,6 @@ export default function Profile({ userId: routeUserId, onNavigate }) {
         <div style={{ fontSize: 13.5, color: '#4B5563', lineHeight: 1.6, background: '#F8F7FF', padding: '12px 14px', borderRadius: 14 }}>{profile.bio}</div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#9CA3AF' }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-        Joined {profile?.created_at ? new Date(profile.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) : '—'}
-      </div>
-
-      {/* Neighbour Score + Trust Level */}
-      <div style={{ background: '#FAFAFF', border: '1px solid #F0EEFF', borderRadius: 18, padding: '16px 18px' }}>
-        <NeighbourScoreCard score={score} trustLabel={trustLabel} />
-      </div>
-
       {/* Verification */}
       {verifications.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -174,16 +169,10 @@ export default function Profile({ userId: routeUserId, onNavigate }) {
       {/* Featured Badges */}
       {badges.length > 0 && (
         <div>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#0D0820', marginBottom: 10 }}>Badges</div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#0D0820', marginBottom: 10 }}>Featured Badges</div>
           <BadgeRow badges={badges} onViewAll={() => setBadgeSheetOpen(true)} />
         </div>
       )}
-
-      {/* Contribution Summary */}
-      <div>
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#0D0820', marginBottom: 10 }}>Contribution Summary</div>
-        <ContributionStats stats={safeStats} />
-      </div>
 
       {/* Contribution Timeline — centrepiece of the Overview tab */}
       <div>
@@ -191,6 +180,9 @@ export default function Profile({ userId: routeUserId, onNavigate }) {
         <ContributionTimeline items={timeline} loading={timelineLoading} onItemClick={handleTimelineClick} />
       </div>
 
+      {/* Account menu — own profile only. Kept right here in Overview (the
+          tab that's visible the instant someone taps the Profile icon) so
+          Settings, Support and Logout are always one tap away. */}
       {isOwnProfile && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {MENU.map(item => (
@@ -215,8 +207,20 @@ export default function Profile({ userId: routeUserId, onNavigate }) {
     </div>
   );
 
+  // Activity tab — full Contribution Summary breakdown (Updates,
+  // Discussions, Comments, Listings, Events Joined, Rides, Helpful Votes).
+  // The account menu lives in Overview instead, so it's not duplicated here.
+  const activityContent = (
+    <div style={{ padding: '18px 20px 8px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#0D0820', marginBottom: 10 }}>Contribution Summary</div>
+        <ContributionStats stats={safeStats} />
+      </div>
+    </div>
+  );
+
   return (
-    <div style={{ background: '#F5F4FF', minHeight: '100vh', paddingBottom: 'calc(var(--bottom-nav-h) + 24px)' }}>
+    <div style={{ background: '#F5F4FF', minHeight: '100vh', paddingBottom: 'calc(var(--bottom-nav-h) + 12px)' }}>
       {loading && !profile ? (
         <div style={{ padding: '80px 0', textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>Loading profile…</div>
       ) : !profile ? (
@@ -233,10 +237,12 @@ export default function Profile({ userId: routeUserId, onNavigate }) {
             score={score}
             trustLabel={trustLabel}
             contributions={contributions}
+            helpfulVotes={safeStats.helpfulVotes || 0}
+            standing={standing}
             onFollowChange={(next) => { setIsFollowing(next); setCounts(c => ({ ...c, followers: Math.max(0, c.followers + (next ? 1 : -1)) })); }}
           />
           <div style={{ margin: '-28px 20px 0', background: '#fff', borderRadius: 18, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', position: 'relative', zIndex: 10, overflow: 'hidden' }}>
-            <ProfileTabs activeKey={activeTab} onChange={setActiveTab} overviewContent={overviewContent} />
+            <ProfileTabs activeKey={activeTab} onChange={setActiveTab} overviewContent={overviewContent} activityContent={activityContent} />
           </div>
           <BadgeSheet open={badgeSheetOpen} badges={badges} onClose={() => setBadgeSheetOpen(false)} />
         </>
