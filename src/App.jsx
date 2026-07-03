@@ -17,6 +17,8 @@ import Profile from './pages/Profile';
 import { useAuth } from './context/AuthContext';
 import { ProfilePreviewProvider } from './context/ProfilePreviewContext';
 import AuthModal from './components/auth/AuthModal';
+import { usePresence } from './hooks/usePresence';
+import { GLOBAL_PRESENCE_ROOM } from './services/presence';
 
 const PgListings    = lazy(() => import('./pages/PgListings'));
 const PgDetails     = lazy(() => import('./pages/PgDetails'));
@@ -79,6 +81,11 @@ export default function App() {
   const [postType, setPostType]               = useState(null);
   const [postAfterLogin, setPostAfterLogin]   = useState(false);
   const { user } = useAuth();
+
+  // Real, app-wide online presence — powers the Profile avatar's online
+  // indicator. No hardcoded/permanent dot: this is a live Supabase
+  // Realtime Presence channel joined for the whole authenticated session.
+  usePresence(GLOBAL_PRESENCE_ROOM, { userId: user?.id, active: !!user });
 
   useEffect(() => { testConnection(); }, []);
 

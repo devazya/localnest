@@ -484,7 +484,14 @@ export default function Community({ onNavigate }) {
       </AnimatePresence>
 
       <AnimatePresence>
-        {showSearch && <SearchOverlay onClose={() => setShowSearch(false)} posts={posts} onJumpToChannel={handleJumpToChannelSlug} />}
+        {showSearch && (
+          <SearchOverlay
+            onClose={() => setShowSearch(false)}
+            posts={posts}
+            onJumpToChannel={handleJumpToChannelSlug}
+            onOpenDiscussion={(id) => setActiveDiscussionId(id)}
+          />
+        )}
       </AnimatePresence>
 
       <AnimatePresence>

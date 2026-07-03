@@ -13,6 +13,7 @@ import { supabase } from '../../services/supabase/client';
 import { CHANNELS } from './constants';
 import { timeAgo } from './utils';
 import Avatar from './Avatar';
+import { useProfilePreview } from '../../context/ProfilePreviewContext';
 
 // ─── Local storage key for recent searches ────────────────────────────────────
 const RECENT_KEY = 'localnest:community_search_recent';
@@ -83,7 +84,8 @@ function GlassCard({ children, onClick, style: extra = {} }) {
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
-export default function SearchOverlay({ onClose, posts, onJumpToChannel }) {
+export default function SearchOverlay({ onClose, posts, onJumpToChannel, onOpenDiscussion }) {
+  const profilePreview = useProfilePreview();
   const [query, setQuery]                   = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [recentSearches, setRecentSearches] = useState(loadRecent);
@@ -131,7 +133,7 @@ export default function SearchOverlay({ onClose, posts, onJumpToChannel }) {
 
     // Popular community posts (most liked, non-announcement)
     supabase.from('community_posts')
-      .select('id,title,body,like_count,comment_count,created_at')
+      .select('id,title,body,like_count,comment_count,created_at,channel_slug')
       .neq('post_type', 'announcement')
       .eq('is_removed', false)
       .order('like_count', { ascending: false })
@@ -193,7 +195,7 @@ export default function SearchOverlay({ onClose, posts, onJumpToChannel }) {
 
         // Announcements
         supabase.from('community_posts')
-          .select('id,title,body,created_at,profiles:author_id(full_name,username)')
+          .select('id,title,body,created_at,channel_slug,profiles:author_id(full_name,username)')
           .eq('post_type', 'announcement')
           .eq('is_removed', false)
           .or(`title.ilike.%${safe}%,body.ilike.%${safe}%`)
@@ -296,7 +298,7 @@ export default function SearchOverlay({ onClose, posts, onJumpToChannel }) {
         <div style={{ marginBottom: 26 }}>
           <SectionHeader title="Trending Discussions" />
           {trendDiscussions.map((d, i) => (
-            <GlassCard key={d.id}>
+            <GlassCard key={d.id} onClick={() => { onOpenDiscussion?.(d.id); handleClose(); }}>
               <span style={{ fontSize: 19, flexShrink: 0 }}>{TREND_EMOJIS[i % TREND_EMOJIS.length]}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.title}</div>
@@ -314,8 +316,9 @@ export default function SearchOverlay({ onClose, posts, onJumpToChannel }) {
           <SectionHeader title="Active Residents" />
           <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 4 }}>
             {trendResidents.map(pr => (
-              <div key={pr.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 56 }}>
-                <Avatar profile={pr} size={46} disablePreview />
+              <div key={pr.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 56, cursor: 'pointer' }}
+                onClick={() => { profilePreview?.open(pr.id); handleClose(); }}>
+                <Avatar profile={pr} size={46} onClick={() => { profilePreview?.open(pr.id); handleClose(); }} />
                 <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', textAlign: 'center', maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {pr.full_name?.split(' ')[0] || pr.username}
                 </span>
@@ -333,7 +336,7 @@ export default function SearchOverlay({ onClose, posts, onJumpToChannel }) {
         <div style={{ marginBottom: 26 }}>
           <SectionHeader title="Popular Posts" />
           {trendPosts.map(post => (
-            <GlassCard key={post.id}>
+            <GlassCard key={post.id} onClick={() => { onJumpToChannel?.(post.channel_slug); handleClose(); }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.title}</div>
                 <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{post.like_count || 0} likes · {post.comment_count || 0} replies</div>
@@ -348,7 +351,7 @@ export default function SearchOverlay({ onClose, posts, onJumpToChannel }) {
         <div style={{ marginBottom: 26 }}>
           <SectionHeader title="Neighbourhood Updates" />
           {trendUpdates.map(upd => (
-            <GlassCard key={upd.id}>
+            <GlassCard key={upd.id} onClick={() => { onJumpToChannel?.('neighbourhood-updates'); handleClose(); }}>
               <span style={{ fontSize: 20, flexShrink: 0 }}>📢</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{upd.title}</div>
@@ -399,8 +402,8 @@ export default function SearchOverlay({ onClose, posts, onJumpToChannel }) {
             <div style={{ marginBottom: 24 }}>
               <SectionHeader title="Residents" count={results.residents.length} />
               {results.residents.slice(0, 3).map(pr => (
-                <GlassCard key={pr.id}>
-                  <Avatar profile={pr} size={38} disablePreview />
+                <GlassCard key={pr.id} onClick={() => { profilePreview?.open(pr.id); addRecent(q); setRecentSearches(loadRecent()); handleClose(); }}>
+                  <Avatar profile={pr} size={38} onClick={() => { profilePreview?.open(pr.id); addRecent(q); setRecentSearches(loadRecent()); handleClose(); }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{pr.full_name || pr.username}</span>
@@ -425,7 +428,7 @@ export default function SearchOverlay({ onClose, posts, onJumpToChannel }) {
             <div style={{ marginBottom: 24 }}>
               <SectionHeader title="Discussions" count={results.discussions.length} />
               {results.discussions.slice(0, 3).map(d => (
-                <GlassCard key={d.id}>
+                <GlassCard key={d.id} onClick={() => { onOpenDiscussion?.(d.id); addRecent(q); setRecentSearches(loadRecent()); handleClose(); }}>
                   <div style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(109,74,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>💬</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.title}</div>
@@ -448,7 +451,7 @@ export default function SearchOverlay({ onClose, posts, onJumpToChannel }) {
             <div style={{ marginBottom: 24 }}>
               <SectionHeader title="Neighbourhood Updates" count={results.updates.length} />
               {results.updates.slice(0, 3).map(upd => (
-                <GlassCard key={upd.id}>
+                <GlassCard key={upd.id} onClick={() => { onJumpToChannel?.('neighbourhood-updates'); addRecent(q); setRecentSearches(loadRecent()); handleClose(); }}>
                   <span style={{ fontSize: 22, flexShrink: 0 }}>📢</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{upd.title}</div>
@@ -467,7 +470,7 @@ export default function SearchOverlay({ onClose, posts, onJumpToChannel }) {
             <div style={{ marginBottom: 24 }}>
               <SectionHeader title="Community Posts" count={results.posts.length} />
               {results.posts.slice(0, 3).map(post => (
-                <GlassCard key={post.id}>
+                <GlassCard key={post.id} onClick={() => { onJumpToChannel?.(post.channel_slug); addRecent(q); setRecentSearches(loadRecent()); handleClose(); }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: '#fff', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.title}</div>
                     {post.body && (
@@ -503,7 +506,7 @@ export default function SearchOverlay({ onClose, posts, onJumpToChannel }) {
             <div style={{ marginBottom: 24 }}>
               <SectionHeader title="Announcements" count={results.announcements.length} />
               {results.announcements.slice(0, 3).map(ann => (
-                <GlassCard key={ann.id}>
+                <GlassCard key={ann.id} onClick={() => { onJumpToChannel?.(ann.channel_slug || 'general'); addRecent(q); setRecentSearches(loadRecent()); handleClose(); }}>
                   <span style={{ fontSize: 22, flexShrink: 0 }}>📣</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ann.title}</div>

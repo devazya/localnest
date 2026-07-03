@@ -22,6 +22,13 @@
  */
 import { supabase } from './supabase/client';
 
+/**
+ * Fixed, app-wide room every authenticated user joins for the lifetime of
+ * their session. Used purely to derive a real "online now" indicator on
+ * profiles (Profile Header avatar) — never a hardcoded green dot.
+ */
+export const GLOBAL_PRESENCE_ROOM = 'localnest:global';
+
 const registry = new Map(); // roomKey -> entry
 
 function topic(roomKey) {

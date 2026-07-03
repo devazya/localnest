@@ -14,6 +14,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { usePresence } from '../hooks/usePresence';
+import { GLOBAL_PRESENCE_ROOM } from '../services/presence';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import ProfileTabs from '../components/profile/ProfileTabs';
 import ContributionStats from '../components/profile/ContributionStats';
@@ -49,6 +51,12 @@ export default function Profile({ userId: routeUserId, onNavigate }) {
   const [timelineLoading, setTimelineLoading] = useState(true);
   const [badgeSheetOpen, setBadgeSheetOpen]   = useState(false);
   const [standing, setStanding]       = useState(null);
+
+  // Real online status — derived from the same app-wide presence room
+  // every authenticated user joins (App.jsx). Watch-only here, so viewing
+  // a profile never counts as "activity" in the room.
+  const { roomMembers } = usePresence(GLOBAL_PRESENCE_ROOM);
+  const isOnline = !!targetId && roomMembers.includes(targetId);
 
   const reload = useCallback(async () => {
     if (!targetId) return;
@@ -239,9 +247,11 @@ export default function Profile({ userId: routeUserId, onNavigate }) {
             contributions={contributions}
             helpfulVotes={safeStats.helpfulVotes || 0}
             standing={standing}
+            online={isOnline}
+            onAvatarUploaded={(url) => setProfile(p => (p ? { ...p, avatar_url: url } : p))}
             onFollowChange={(next) => { setIsFollowing(next); setCounts(c => ({ ...c, followers: Math.max(0, c.followers + (next ? 1 : -1)) })); }}
           />
-          <div style={{ margin: '-28px 20px 0', background: '#fff', borderRadius: 18, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', position: 'relative', zIndex: 10, overflow: 'hidden' }}>
+          <div style={{ margin: '0 20px', background: '#fff', borderRadius: '0 0 18px 18px', overflow: 'hidden' }}>
             <ProfileTabs activeKey={activeTab} onChange={setActiveTab} overviewContent={overviewContent} activityContent={activityContent} />
           </div>
           <BadgeSheet open={badgeSheetOpen} badges={badges} onClose={() => setBadgeSheetOpen(false)} />
