@@ -272,7 +272,7 @@ function UpdateCard({ post, user, userHelpful, isSaved, onHelpful, onSave, onRep
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function NeighbourhoodUpdates({ channel, user, isAdmin }) {
+export default function NeighbourhoodUpdates({ channel, user, isAdmin, autoOpen }) {
   const [posts, setPosts]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [hasMore, setHasMore]       = useState(true);
@@ -283,6 +283,12 @@ export default function NeighbourhoodUpdates({ channel, user, isAdmin }) {
   const [showPostModal, setShowPostModal]   = useState(false);
   const [showGuide, setShowGuide]           = useState(false);
   const loaderRef = useRef(null);
+
+  // Universal Creator auto-open (Segment 7.1) — open CreateUpdateModal
+  // when the creator routes here with the neighbourhood-update signal.
+  useEffect(() => {
+    if (autoOpen) setShowPostModal(true);
+  }, [autoOpen]);
 
   // First-time guide
   useEffect(() => {

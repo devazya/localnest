@@ -42,7 +42,7 @@ import NeighbourhoodUpdates from '../components/community/NeighbourhoodUpdates';
 
 const POST_SELECT = `id,author_id,channel_id,channel_slug,title,body,image_urls,is_anonymous,is_pinned,like_count,downvote_count,comment_count,post_type,metadata,is_removed,report_count,created_at,updated_at,profiles:author_id(id,full_name,username,avatar_url,is_verified)`;
 
-export default function Community({ onNavigate }) {
+export default function Community({ onNavigate, autoOpen }) {
   const { user: authUser } = useAuth();
   const [user, setUser]                       = useState(authUser || null);
   const [profile, setProfile]                 = useState(null);
@@ -69,6 +69,36 @@ export default function Community({ onNavigate }) {
   const [showCreateDiscussion, setShowCreateDiscussion] = useState(false);
   const [creatingDiscussion, setCreatingDiscussion] = useState(false);
   const [activeDiscussionId, setActiveDiscussionId] = useState(null);
+
+  // ─ Universal Creator auto-open (Segment 7.1) ─
+  // When the Universal Creator routes here with an autoOpen signal,
+  // fire the correct existing modal/sheet. No new composer code needed.
+  const [autoOpenUpdateModal, setAutoOpenUpdateModal] = useState(false);
+
+  useEffect(() => {
+    if (!autoOpen) return;
+    if (autoOpen === 'discussion') {
+      setShowCreateDiscussion(true);
+    } else if (autoOpen === 'neighbourhood-update') {
+      // Switch to the neighbourhood-updates channel. If channels are already
+      // loaded we can switch immediately; if not, the second effect below
+      // handles it once channels arrive.
+      const nuChannel = channels.find(c => c.slug === 'neighbourhood-updates');
+      if (nuChannel) { setActiveChannelId(nuChannel.id); setAutoOpenUpdateModal(true); }
+      else setAutoOpenUpdateModal(true); // channel switch happens in effect below
+    } else if (autoOpen === 'community-post') {
+      setShowModal(true);
+    }
+  // eslint-disable-next-line
+  }, [autoOpen]);
+
+  // When channels load and autoOpen is waiting for neighbourhood-updates channel
+  useEffect(() => {
+    if (autoOpen !== 'neighbourhood-update' || channels.length === 0) return;
+    const nuChannel = channels.find(c => c.slug === 'neighbourhood-updates');
+    if (nuChannel && activeChannelId !== nuChannel.id) setActiveChannelId(nuChannel.id);
+  // eslint-disable-next-line
+  }, [channels, autoOpen]);
   // Discussions (Segment 3) — the reusable Discussion Ecosystem. Supabase is
   // the only source of truth; nothing here is hardcoded. `allDiscussions`
   // holds every ACTIVE discussion across every Community channel so both a
@@ -566,6 +596,7 @@ export default function Community({ onNavigate }) {
           channel={activeChannel}
           user={user}
           isAdmin={isAdmin}
+          autoOpen={autoOpenUpdateModal}
         />
       ) : (
         <ChannelPlaceholder activeMeta={activeMeta} activeName={activeName} />

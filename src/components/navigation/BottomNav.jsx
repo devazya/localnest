@@ -1,11 +1,8 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import styles from './BottomNav.module.css';
-import {
-  BuySellIcon, CommunityIcon, RidesIcon, RoommatesIcon,
-  EventsIcon, HomeNavIcon,
-} from '../../assets/icons/index.jsx';
+import UniversalCreator from '../creator/UniversalCreator';
 
 /* ── Tabs ── */
 const TABS = [
@@ -50,54 +47,8 @@ const TABS = [
   },
 ];
 
-/* ── Post sheet options with 3D clay icons ── */
-const POST_OPTIONS = [
-  {
-    id:'marketplace',
-    label:'Sell an Item',
-    sub:'List something for sale',
-    color:'#D97706',
-    Icon: () => <BuySellIcon size={26} />,
-  },
-  {
-    id:'community',
-    label:'Community Post',
-    sub:'Share with neighbours',
-    color:'#6D4AFF',
-    Icon: () => <CommunityIcon size={26} />,
-  },
-  {
-    id:'ride',
-    label:'Offer a Ride',
-    sub:'Share your commute',
-    color:'#0284C7',
-    Icon: () => <RidesIcon size={26} />,
-  },
-  {
-    id:'roommate',
-    label:'Find Roommate',
-    sub:'Post a roommate request',
-    color:'#EC4899',
-    Icon: () => <RoommatesIcon size={26} />,
-  },
-  {
-    id:'event',
-    label:'Create Event',
-    sub:'Organise a local event',
-    color:'#7C3AED',
-    Icon: () => <EventsIcon size={26} />,
-  },
-  {
-    id:'pg',
-    label:'Register Business',
-    sub:'Add your shop or listing',
-    color:'#059669',
-    Icon: () => <HomeNavIcon size={26} />,
-  },
-];
-
 export default function BottomNav({ currentPage, onNavigate, onAuthOpen, onPostOpen }) {
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [creatorOpen, setCreatorOpen] = useState(false);
   const { user } = useAuth();
 
   const isActive = (tab) => {
@@ -111,14 +62,15 @@ export default function BottomNav({ currentPage, onNavigate, onAuthOpen, onPostO
   const handleTab = (tab) => {
     if (tab.isAction) {
       if (!user) { onAuthOpen(); return; }
-      setSheetOpen(true); return;
+      setCreatorOpen(true);
+      return;
     }
     if (tab.id === 'profile' && !user) { onAuthOpen(); return; }
     onNavigate(tab.id);
   };
 
-  const handleOption = (typeId) => {
-    setSheetOpen(false);
+  // Called when the user picks an option inside UniversalCreator
+  const handleCreatorSelect = (typeId) => {
     if (onPostOpen) onPostOpen(typeId);
   };
 
@@ -134,16 +86,16 @@ export default function BottomNav({ currentPage, onNavigate, onAuthOpen, onPostO
                   <motion.button
                     className={styles.actionBtn}
                     onClick={() => handleTab(tab)}
-                    whileTap={{ scale:0.88 }}
-                    animate={{ rotate: sheetOpen ? 45 : 0 }}
-                    transition={{ type:'spring', stiffness:500, damping:30 }}
+                    whileTap={{ scale: 0.88 }}
+                    animate={{ rotate: creatorOpen ? 45 : 0 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     aria-label="Create post"
                   >
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                       <path d="M12 5v14M5 12h14"/>
                     </svg>
                   </motion.button>
-                  <span className={styles.tabLabel} style={{ opacity:0 }}>Post</span>
+                  <span className={styles.tabLabel} style={{ opacity: 0 }}>Post</span>
                 </div>
               );
             }
@@ -156,7 +108,7 @@ export default function BottomNav({ currentPage, onNavigate, onAuthOpen, onPostO
                 onClick={() => handleTab(tab)}
                 aria-label={tab.label}
                 aria-current={active ? 'page' : undefined}
-                whileTap={{ scale:0.88 }}
+                whileTap={{ scale: 0.88 }}
               >
                 <div className={styles.iconBox}>
                   <tab.Icon active={active} />
@@ -164,7 +116,7 @@ export default function BottomNav({ currentPage, onNavigate, onAuthOpen, onPostO
                     <motion.span
                       className={styles.activePill}
                       layoutId="navActivePill"
-                      transition={{ type:'spring', stiffness:400, damping:32 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                     />
                   )}
                 </div>
@@ -177,63 +129,13 @@ export default function BottomNav({ currentPage, onNavigate, onAuthOpen, onPostO
         </div>
       </nav>
 
-      {/* ── Post Sheet ── */}
-      <AnimatePresence>
-        {sheetOpen && (
-          <>
-            <motion.div
-              className="sheet-backdrop"
-              initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-              onClick={() => setSheetOpen(false)}
-            />
-            <motion.div
-              className={`sheet-panel ${styles.sheet}`}
-              initial={{ y:'100%' }} animate={{ y:0 }} exit={{ y:'100%' }}
-              transition={{ type:'spring', stiffness:360, damping:34 }}
-            >
-              <div className="sheet-handle" />
-
-              {/* Sheet header */}
-              <div className={styles.sheetHead}>
-                <span className={styles.sheetTitle}>What do you want to create?</span>
-                <button className={styles.sheetClose} onClick={() => setSheetOpen(false)} aria-label="Close">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                </button>
-              </div>
-
-              {/* Options */}
-              <div className={styles.optionList}>
-                {POST_OPTIONS.map((opt, i) => (
-                  <motion.button
-                    key={opt.id}
-                    className={styles.optRow}
-                    onClick={() => handleOption(opt.id)}
-                    initial={{ opacity:0, y:12 }}
-                    animate={{ opacity:1, y:0 }}
-                    transition={{ delay:i*0.04, ease:[0.22,1,0.36,1] }}
-                    whileTap={{ scale:0.96 }}
-                    style={{ '--c': opt.color }}
-                  >
-                    {/* 3D clay icon */}
-                    <div className={styles.optIcon} style={{
-                      background: `${opt.color}12`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      width: 48, height: 48, borderRadius: 14, flexShrink: 0,
-                    }}>
-                      <opt.Icon />
-                    </div>
-                    <div className={styles.optText}>
-                      <span className={styles.optLabel}>{opt.label}</span>
-                      <span className={styles.optSub}>{opt.sub}</span>
-                    </div>
-                    <svg className={styles.optChevron} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
-                  </motion.button>
-                ))}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {/* ── Universal Creator Sheet ── */}
+      <UniversalCreator
+        isOpen={creatorOpen}
+        onClose={() => setCreatorOpen(false)}
+        onSelect={handleCreatorSelect}
+        context={currentPage}
+      />
     </>
   );
 }

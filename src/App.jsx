@@ -26,31 +26,58 @@ const Shops         = lazy(() => import('./pages/Shops'));
 const Gyms          = lazy(() => import('./pages/Gyms'));
 const UniversalPost = lazy(() => import('./components/UniversalPost'));
 
-/* ── Onboarding flow:  splash → onboarding → location → app ── */
+/* ── Onboarding flow ── */
 const ONBOARDING_KEY = 'ln_onboarding_done';
 
-/* ── Page registry ──
- * `params` carries per-navigation extras (currently only Profile's
- * viewed userId) without changing every other page's signature. */
+/* ── Page registry ── */
 const PAGES = {
-  home:      (nav)               => <Home       onNavigate={nav} />,
-  explore:   (nav)               => <Explore    onNavigate={nav} />,
-  pgs:       (nav, user)         => <PgListings onNavigate={nav} user={user} />,
-  pgdetails: (nav)               => <PgDetails  onNavigate={nav} />,
-  shops:     (nav)               => <Shops      onNavigate={nav} />,
-  gyms:      (nav)               => <Gyms       onNavigate={nav} />,
-  community: (nav)               => <Community  onNavigate={nav} />,
-  rideshare: (nav)               => <RideShare  onNavigate={nav} />,
-  events:    (nav)               => <Events     onNavigate={nav} />,
-  buysell:   (nav)               => <BuySell    onNavigate={nav} />,
-  roommates: (nav)               => <Roommates  onNavigate={nav} />,
-  profile:   (nav, _user, params) => <Profile   onNavigate={nav} userId={params?.userId} />,
+  home:      (nav, user, params)  => <Home       onNavigate={nav} />,
+  explore:   (nav, user, params)  => <Explore    onNavigate={nav} />,
+  pgs:       (nav, user, params)  => <PgListings onNavigate={nav} user={user} />,
+  pgdetails: (nav, user, params)  => <PgDetails  onNavigate={nav} />,
+  shops:     (nav, user, params)  => <Shops      onNavigate={nav} />,
+  gyms:      (nav, user, params)  => <Gyms       onNavigate={nav} />,
+  community: (nav, user, params)  => <Community  onNavigate={nav} autoOpen={params?.autoOpen} />,
+  rideshare: (nav, user, params)  => <RideShare  onNavigate={nav} />,
+  events:    (nav, user, params)  => <Events     onNavigate={nav} />,
+  buysell:   (nav, user, params)  => <BuySell    onNavigate={nav} />,
+  roommates: (nav, user, params)  => <Roommates  onNavigate={nav} />,
+  profile:   (nav, user, params)  => <Profile    onNavigate={nav} userId={params?.userId} />,
 };
 
-const POST_ROUTE = {
-  pg:'pgs', community:'community', ride:'rideshare',
-  event:'events', marketplace:'buysell', roommate:'roommates',
-  shop:'shops', gym:'gyms',
+/* ── UniversalCreator typeId → routing logic ──────────────────────────────────
+ *
+ * 'discussion'           Navigate to Community, auto-open CreateDiscussionSheet
+ * 'neighbourhood-update' Navigate to Community (neighbourhood-updates channel),
+ *                        auto-open CreateUpdateModal
+ * 'community-post'       Navigate to Community, auto-open CreatePostModal
+ * 'list-pg'              Open existing UniversalPost with type='pg'
+ * 'ride-offer'           Open existing UniversalPost with type='ride'   (7.2)
+ * 'sell-item'            Open existing UniversalPost with type='marketplace' (7.2)
+ * 'create-event'         Open existing UniversalPost with type='event'  (7.2)
+ * 'ride-request'         Coming soon (7.2)
+ * 'post-job'             Coming soon (7.2)
+ * 'lost-found'           Coming soon (7.2)
+ * 'ask-help'             Coming soon (7.2)
+ * 'create-poll'          Coming soon (7.2)
+ *
+ * All "community-side" types navigate to Community with an `autoOpen`
+ * param so the existing, unmodified modals open themselves via useEffect.
+ * This keeps ALL composer logic exactly where it already lives.
+ */
+const CREATOR_ROUTES = {
+  // → Community page with autoOpen signal
+  'discussion':           { page: 'community', autoOpen: 'discussion' },
+  'neighbourhood-update': { page: 'community', autoOpen: 'neighbourhood-update' },
+  'community-post':       { page: 'community', autoOpen: 'community-post' },
+
+  // → Existing UniversalPost modal (no page change)
+  'list-pg':       { universalPostType: 'pg' },
+
+  // → UniversalPost for types that already exist in it (7.2 will refine)
+  'ride-offer':    { universalPostType: 'ride' },
+  'sell-item':     { universalPostType: 'marketplace' },
+  'create-event':  { universalPostType: 'event' },
 };
 
 export default function App() {
@@ -58,7 +85,6 @@ export default function App() {
   const alreadySeen = () => {
     try { return !!localStorage.getItem(ONBOARDING_KEY); } catch { return false; }
   };
-  // flow: 'splash' | 'onboarding' | 'location' | 'app'
   const [flow, setFlow] = useState(alreadySeen() ? 'app' : 'splash');
 
   const advanceFlow = () => {
@@ -74,50 +100,90 @@ export default function App() {
   };
 
   /* ── App state ── */
-  const [page, setPage]                       = useState('home');
-  const [pageParams, setPageParams]           = useState(null);
-  const [authOpen, setAuthOpen]               = useState(false);
-  const [postOpen, setPostOpen]               = useState(false);
-  const [postType, setPostType]               = useState(null);
-  const [postAfterLogin, setPostAfterLogin]   = useState(false);
+  const [page, setPage]                     = useState('home');
+  const [pageParams, setPageParams]         = useState(null);
+  const [authOpen, setAuthOpen]             = useState(false);
+  const [postOpen, setPostOpen]             = useState(false);
+  const [postType, setPostType]             = useState(null);
+  const [postAfterLogin, setPostAfterLogin] = useState(false);
+  const [pendingCreatorType, setPendingCreatorType] = useState(null);
+
   const { user } = useAuth();
 
-  // Real, app-wide online presence — powers the Profile avatar's online
-  // indicator. No hardcoded/permanent dot: this is a live Supabase
-  // Realtime Presence channel joined for the whole authenticated session.
   usePresence(GLOBAL_PRESENCE_ROOM, { userId: user?.id, active: !!user });
-
   useEffect(() => { testConnection(); }, []);
 
+  /* After login completes, fire the pending creator action */
   useEffect(() => {
-    if (user && postAfterLogin) {
+    if (user && postAfterLogin && pendingCreatorType) {
       setPostAfterLogin(false);
       setAuthOpen(false);
-      setPostOpen(true);
+      handleCreatorType(pendingCreatorType);
+      setPendingCreatorType(null);
     }
-  }, [user, postAfterLogin]);
+  }, [user, postAfterLogin, pendingCreatorType]); // eslint-disable-line
 
   useEffect(() => {
     if (user && authOpen) setAuthOpen(false);
   }, [user]); // eslint-disable-line
 
+  /* ── Core creator dispatch ────────────────────────────────────────────────
+   * Called by BottomNav (via onPostOpen) when the user picks a typeId.
+   * Routes to the correct existing composer without duplicating any logic.
+   */
+  const handleCreatorType = (typeId) => {
+    if (!user) {
+      setPendingCreatorType(typeId);
+      setPostAfterLogin(true);
+      setAuthOpen(true);
+      return;
+    }
+
+    const route = CREATOR_ROUTES[typeId];
+
+    if (!route) {
+      // Unknown / coming-soon type — do nothing (the card is labelled "Soon")
+      return;
+    }
+
+    if (route.universalPostType) {
+      // Open the existing UniversalPost modal
+      setPostType(route.universalPostType);
+      setPostOpen(true);
+      return;
+    }
+
+    if (route.page) {
+      // Navigate to the target page and pass autoOpen so the page's
+      // own useEffect can open the right existing modal/sheet.
+      setPage(route.page);
+      setPageParams({ autoOpen: route.autoOpen });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  /* Legacy openPost — still used by Navbar / other callers */
   const openPost = (type = null) => {
     if (!user) { setPostAfterLogin(true); setAuthOpen(true); return; }
-    setPostType(type); setPostOpen(true);
+    if (type) {
+      handleCreatorType(type);
+    } else {
+      // No type given: open UniversalPost default picker (legacy behaviour)
+      setPostType(null);
+      setPostOpen(true);
+    }
   };
 
   const navigate = (p, params = null) => {
     if (p === 'post') { openPost(); return; }
     setPage(p);
     setPageParams(params);
-    window.scrollTo({ top:0, behavior:'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  /* Viewing another resident's profile — used by the Profile Preview
-     Bottom Sheet's "View Profile" button, and available anywhere. */
   const viewProfile = (userId) => navigate('profile', { userId });
 
-  /* ── Render pre-app flow ── */
+  /* ── Pre-app onboarding flow ── */
   if (flow !== 'app') {
     return (
       <AnimatePresence mode="wait">
@@ -145,7 +211,12 @@ export default function App() {
 
   return (
     <ProfilePreviewProvider viewerId={user?.id} onViewProfile={viewProfile}>
-      <MainLayout currentPage={page} onNavigate={navigate} onAuthOpen={() => setAuthOpen(true)} onPostOpen={openPost}>
+      <MainLayout
+        currentPage={page}
+        onNavigate={navigate}
+        onAuthOpen={() => setAuthOpen(true)}
+        onPostOpen={handleCreatorType}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={page === 'profile' ? `profile-${pageParams?.userId || 'me'}` : page}
@@ -159,14 +230,19 @@ export default function App() {
           </motion.div>
         </AnimatePresence>
 
-        <AuthModal isOpen={authOpen} onClose={() => { setAuthOpen(false); setPostAfterLogin(false); }} />
+        <AuthModal isOpen={authOpen} onClose={() => { setAuthOpen(false); setPostAfterLogin(false); setPendingCreatorType(null); }} />
 
+        {/* Existing UniversalPost modal — only for non-community post types */}
         {postOpen && (
           <Suspense fallback={null}>
             <UniversalPost
               isOpen={postOpen}
               onClose={() => { setPostOpen(false); setPostType(null); }}
-              onSuccess={(type) => { const r = POST_ROUTE[type]; if (r) navigate(r); }}
+              onSuccess={(type) => {
+                const pageMap = { pg:'pgs', ride:'rideshare', event:'events', marketplace:'buysell', roommate:'roommates', shop:'shops', gym:'gyms' };
+                const dest = pageMap[type];
+                if (dest) navigate(dest);
+              }}
               user={user}
               defaultType={postType}
             />
