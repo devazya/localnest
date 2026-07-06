@@ -5,12 +5,24 @@
  * message list. Discussions are not part of the Supabase schema yet
  * (no backend/schema changes in this segment), so messages live in local
  * component state for the duration of the session.
+ *
+ * Profile UI Premium Polish:
+ * - Header icon is now a large, coded SVG (SportIcon) matching the
+ *   discussion's real category when the channel is Sports, instead of a
+ *   single tiny fixed emoji for every sport.
+ * - Own messages now carry the signed-in user's real id on their profile
+ *   snapshot, so tapping the avatar correctly opens the Profile Preview
+ *   overlay card (previously silently did nothing).
+ * - The composer is pinned flush to the very bottom of the room (this is
+ *   a full-screen overlay with no bottom nav to reserve space for) and
+ *   given a lifted, 3D elevated look.
  */
 
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Avatar from './Avatar';
 import CommunityComposer from './CommunityComposer';
+import SportIcon from './SportIcon';
 import { timeAgo } from './utils';
 import { CHANNEL_EMOJI } from './constants';
 import { usePresenceCount } from '../../hooks/usePresence';
@@ -30,13 +42,20 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
 
+  const isSports = discussion.community_channel === 'sports';
+
   const submit = async () => {
     if (!text.trim() || !user) return;
     setSubmitting(true);
     setMessages(prev => [...prev, {
       id: `local-${Date.now()}`,
       author_id: user.id,
-      profiles: { full_name: user.user_metadata?.full_name, username: user.email, avatar_url: user.user_metadata?.avatar_url },
+      profiles: {
+        id: user.id,
+        full_name: user.user_metadata?.full_name,
+        username: user.email,
+        avatar_url: user.user_metadata?.avatar_url,
+      },
       title: text.trim(),
       created_at: new Date().toISOString(),
     }]);
@@ -53,7 +72,7 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
     >
       <div style={{
         background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(109,74,255,0.08)', padding: '0 14px', height: 60,
+        borderBottom: '1px solid rgba(109,74,255,0.08)', padding: '0 14px', height: 64,
         display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0,
       }}>
         <button onClick={onBack} style={{
@@ -62,9 +81,21 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
         }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.2"><path d="m15 18-6-6 6-6"/></svg>
         </button>
+
+        {/* Large, real category icon (coded SVG) — not a tiny generic emoji */}
+        <div style={{
+          width: 40, height: 40, borderRadius: 14, background: '#fff', border: '1.5px solid rgba(109,74,255,0.12)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          boxShadow: '0 4px 10px -3px rgba(45,15,120,0.18)',
+        }}>
+          {isSports
+            ? <SportIcon category={discussion.category} size={26} />
+            : <span style={{ fontSize: 20 }}>{CHANNEL_EMOJI[discussion.community_channel] || '🗨️'}</span>}
+        </div>
+
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15.5, fontWeight: 700, color: '#0D0820', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>{CHANNEL_EMOJI[discussion.community_channel] || '🗨️'}</span> {discussion.title}
+          <div style={{ fontSize: 15.5, fontWeight: 700, color: '#0D0820', fontFamily: 'var(--font-display)' }}>
+            {discussion.title}
           </div>
           <div style={{ fontSize: 11, color: '#9CA3AF', display: 'flex', gap: 4 }}><AnimatedNumber value={onlineCount} /> members online</div>
         </div>
@@ -94,8 +125,20 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
           <div ref={bottomRef} />
         </div>
 
-        <div style={{ flexShrink: 0, paddingTop: 10, paddingBottom: 'calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 10px)', borderTop: '1.5px solid #F0EFFF', marginTop: 4 }}>
-          <CommunityComposer user={user} text={text} setText={setText} onSubmit={submit} submitting={submitting} />
+        {/* Composer pinned flush to the bottom — this is a full-screen
+            overlay room with no bottom nav visible, so only the device's
+            safe-area gets reserved, not bottom-nav height. Elevated 3D
+            card look via the wrapping shadow. */}
+        <div style={{
+          flexShrink: 0, padding: '10px 0 calc(env(safe-area-inset-bottom, 0px) + 12px)',
+          borderTop: '1.5px solid #F0EFFF', marginTop: 4,
+          background: 'linear-gradient(180deg, rgba(238,238,255,0) 0%, #EEEEFF 40%)',
+        }}>
+          <div style={{
+            borderRadius: 20, boxShadow: '0 -4px 18px -6px rgba(45,15,120,0.14), 0 10px 24px -8px rgba(45,15,120,0.22)',
+          }}>
+            <CommunityComposer user={user} text={text} setText={setText} onSubmit={submit} submitting={submitting} />
+          </div>
         </div>
       </div>
     </motion.div>

@@ -1,13 +1,13 @@
 /**
- * ProfileQuickActionsMenu.jsx — Social Interaction Layer (Segment 5.3)
- * Overflow (⋯) menu on Profile Preview / Profile Header: Copy Profile Link,
- * Share Profile, Report Profile, Mute Resident. Blocking is intentionally
- * NOT implemented per spec. Report submits to profile_reports; Mute writes
- * to muted_residents — both existing tables, reused via services/social.js.
+ * ProfileQuickActionsMenu.jsx — Profile UI Premium Polish
+ * Overflow (⋯) → premium bottom sheet: Share Profile, Copy Link, Mute
+ * Resident, Report Resident, Block Resident (Coming Soon), QR Code
+ * (Coming Soon). Reuses existing functionality (services/social.js) —
+ * only the presentation changed from a dropdown to a bottom sheet.
  */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { copyProfileLink, reportProfile, muteResident, unmuteResident } from '../../services/social';
+import { copyProfileLink, shareProfile, reportProfile, muteResident, unmuteResident, fetchIsMuted } from '../../services/social';
 import { PROFILE_REPORT_REASONS } from '../community/constants';
 
 function ProfileReportSheet({ onClose, onSubmit }) {
@@ -30,7 +30,7 @@ function ProfileReportSheet({ onClose, onSubmit }) {
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
         style={{ width: '100%', maxWidth: 420, background: '#fff', borderRadius: 22, padding: 22, boxShadow: '0 24px 80px rgba(0,0,0,0.22)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#0D0820', fontFamily: 'var(--font-display)' }}>Report Profile</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#0D0820', fontFamily: 'var(--font-display)' }}>Report Resident</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#9CA3AF' }}>×</button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
@@ -53,36 +53,31 @@ function ProfileReportSheet({ onClose, onSubmit }) {
   );
 }
 
-export default function ProfileQuickActionsMenu({ viewerId, profile, isMuted, onMuteChange, onToast }) {
+export default function ProfileQuickActionsMenu({ viewerId, profile, onToast, iconOnly = false }) {
   const [open, setOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const ref = useRef(null);
+  const [isMuted, setIsMuted] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [open]);
+    if (!viewerId || !profile?.id) return;
+    fetchIsMuted(viewerId, profile.id).then(setIsMuted).catch(() => {});
+  }, [viewerId, profile?.id]);
 
   if (!profile || !viewerId || viewerId === profile.id) return null;
   const name = profile.full_name || profile.username || 'Resident';
 
-  const handleCopy = async (e) => {
-    e.stopPropagation();
+  const handleCopy = async () => {
     setOpen(false);
     try { await copyProfileLink(profile.id); onToast?.('Profile link copied'); }
     catch (err) { console.error('Copy link failed:', err); }
   };
 
-  const handleShare = async (e) => {
-    e.stopPropagation();
+  const handleShare = async () => {
     setOpen(false);
     try {
-      const url = `${window.location.origin}${window.location.pathname}#/profile/${profile.id}`;
-      if (navigator.share) await navigator.share({ title: `${name} on LocalNest`, url });
-      else { await navigator.clipboard.writeText(url); onToast?.('Profile link copied'); }
+      const shared = await shareProfile(profile.id, name);
+      if (shared) onToast?.('Profile link copied');
     } catch { /* user cancelled — not an error */ }
   };
 
@@ -91,14 +86,13 @@ export default function ProfileQuickActionsMenu({ viewerId, profile, isMuted, on
     catch (err) { console.error('Report profile failed:', err); }
   };
 
-  const handleMuteToggle = async (e) => {
-    e.stopPropagation();
+  const handleMuteToggle = async () => {
     setOpen(false);
     if (busy) return;
     setBusy(true);
     try {
-      if (isMuted) { await unmuteResident(viewerId, profile.id); onMuteChange?.(false); onToast?.(`Unmuted ${name}`); }
-      else { await muteResident(viewerId, profile.id); onMuteChange?.(true); onToast?.(`Muted ${name}`); }
+      if (isMuted) { await unmuteResident(viewerId, profile.id); setIsMuted(false); onToast?.(`Unmuted ${name}`); }
+      else { await muteResident(viewerId, profile.id); setIsMuted(true); onToast?.(`Muted ${name}`); }
     } catch (err) {
       console.error('Mute toggle failed:', err);
     } finally {
@@ -106,17 +100,28 @@ export default function ProfileQuickActionsMenu({ viewerId, profile, isMuted, on
     }
   };
 
+  const ITEMS = [
+    { icon: '📤', label: 'Share Profile', onClick: handleShare },
+    { icon: '🔗', label: 'Copy Link', onClick: handleCopy },
+    { icon: isMuted ? '🔔' : '🔕', label: isMuted ? 'Unmute Resident' : 'Mute Resident', onClick: handleMuteToggle },
+    { icon: '🚩', label: 'Report Resident', onClick: () => { setOpen(false); setReportOpen(true); }, danger: true },
+    { icon: '⛔', label: 'Block Resident', sub: 'Coming Soon', disabled: true },
+    { icon: '📱', label: 'QR Code', sub: 'Coming Soon', disabled: true },
+  ];
+
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <>
       <motion.button
         whileTap={{ scale: 0.9 }}
-        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
-        style={{
-          width: 34, height: 34, borderRadius: '50%', border: 'none',
-          background: '#F5F4FF', color: '#6D4AFF', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
-        }}
+        onClick={() => setOpen(true)}
         aria-label="Profile options"
+        style={{
+          width: iconOnly ? 40 : 34, height: iconOnly ? 40 : 34, borderRadius: iconOnly ? 14 : '50%', border: iconOnly ? '1.5px solid #F1EEFF' : 'none',
+          background: iconOnly ? '#fff' : 'rgba(255,255,255,0.16)', color: iconOnly ? '#6D4AFF' : '#fff', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+          backdropFilter: iconOnly ? undefined : 'blur(6px)',
+          boxShadow: iconOnly ? '0 6px 14px -6px rgba(45,15,120,0.14)' : undefined,
+        }}
       >
         <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
       </motion.button>
@@ -124,34 +129,45 @@ export default function ProfileQuickActionsMenu({ viewerId, profile, isMuted, on
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.96 }}
-            transition={{ type: 'spring', damping: 26, stiffness: 340 }}
-            style={{
-              position: 'absolute', top: 40, right: 0, zIndex: 220,
-              background: '#fff', borderRadius: 16, boxShadow: '0 14px 40px rgba(13,8,32,0.18)',
-              border: '1px solid rgba(0,0,0,0.06)', minWidth: 200, padding: 6, overflow: 'hidden',
-            }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'rgba(13,8,32,0.45)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setOpen(false)}
           >
-            {[
-              { icon: '🔗', label: 'Copy Profile Link', onClick: handleCopy },
-              { icon: '📤', label: 'Share Profile', onClick: handleShare },
-              { icon: '🚩', label: 'Report Profile', onClick: (e) => { e.stopPropagation(); setOpen(false); setReportOpen(true); }, danger: true },
-              { icon: isMuted ? '🔔' : '🔕', label: isMuted ? 'Unmute Resident' : 'Mute Resident', onClick: handleMuteToggle },
-            ].map(item => (
-              <button
-                key={item.label}
-                onClick={item.onClick}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 12px', borderRadius: 10, border: 'none', background: 'none',
-                  cursor: 'pointer', textAlign: 'left', fontSize: 13.5, fontWeight: 600,
-                  color: item.danger ? '#DC2626' : '#0D0820',
-                }}
-              >
-                <span style={{ fontSize: 15 }}>{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'absolute', left: 0, right: 0, bottom: 0,
+                background: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+                padding: '10px 10px calc(env(safe-area-inset-bottom) + 18px)',
+                boxShadow: '0 -14px 40px rgba(13,8,32,0.2)',
+              }}
+            >
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: '#E5E1FF', margin: '6px auto 12px' }} />
+              {ITEMS.map(item => (
+                <button
+                  key={item.label}
+                  onClick={item.disabled ? undefined : item.onClick}
+                  disabled={item.disabled}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 14,
+                    padding: '13px 14px', borderRadius: 14, border: 'none', background: 'none',
+                    cursor: item.disabled ? 'default' : 'pointer', textAlign: 'left',
+                    opacity: item.disabled ? 0.5 : 1,
+                  }}
+                >
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 12, background: item.danger ? 'rgba(220,38,38,0.08)' : '#F5F4FF',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0,
+                  }}>{item.icon}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 700, color: item.danger ? '#DC2626' : '#0D0820' }}>{item.label}</div>
+                    {item.sub && <div style={{ fontSize: 11.5, color: '#9CA3AF', marginTop: 1 }}>{item.sub}</div>}
+                  </div>
+                </button>
+              ))}
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -159,6 +175,6 @@ export default function ProfileQuickActionsMenu({ viewerId, profile, isMuted, on
       <AnimatePresence>
         {reportOpen && <ProfileReportSheet onClose={() => setReportOpen(false)} onSubmit={handleReportSubmit} />}
       </AnimatePresence>
-    </div>
+    </>
   );
 }

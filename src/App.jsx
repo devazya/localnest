@@ -19,6 +19,7 @@ import { ProfilePreviewProvider } from './context/ProfilePreviewContext';
 import AuthModal from './components/auth/AuthModal';
 import { usePresence } from './hooks/usePresence';
 import { GLOBAL_PRESENCE_ROOM } from './services/presence';
+import UniversalCreator from './components/creator/UniversalCreator';
 
 const PgListings    = lazy(() => import('./pages/PgListings'));
 const PgDetails     = lazy(() => import('./pages/PgDetails'));
@@ -107,6 +108,7 @@ export default function App() {
   const [postType, setPostType]             = useState(null);
   const [postAfterLogin, setPostAfterLogin] = useState(false);
   const [pendingCreatorType, setPendingCreatorType] = useState(null);
+  const [creatorSheetOpen, setCreatorSheetOpen] = useState(false);
 
   const { user } = useAuth();
 
@@ -162,20 +164,38 @@ export default function App() {
     }
   };
 
-  /* Legacy openPost — still used by Navbar / other callers */
+  /* openPost — called by Navbar "Post" button and navigate('post')
+   * With no type: open the Universal Creator sheet (the single entry point).
+   * With a type:  route directly via handleCreatorType.
+   */
   const openPost = (type = null) => {
     if (!user) { setPostAfterLogin(true); setAuthOpen(true); return; }
     if (type) {
       handleCreatorType(type);
     } else {
-      // No type given: open UniversalPost default picker (legacy behaviour)
-      setPostType(null);
-      setPostOpen(true);
+      // Open the Universal Creator picker — the single creation entry point.
+      setCreatorSheetOpen(true);
     }
   };
 
   const navigate = (p, params = null) => {
+    // 'post' with no type — open the Universal Creator
     if (p === 'post') { openPost(); return; }
+    // 'post:typeId' — e.g. from page-level "+ Sell Something" buttons
+    // Route through the Universal Creator so there is ONE creation entry point.
+    if (typeof p === 'string' && p.startsWith('post:')) {
+      const typeAlias = p.slice(5); // e.g. 'marketplace', 'ride', 'event'
+      // Map page-level aliases to Universal Creator typeIds
+      const aliasMap = {
+        marketplace: 'sell-item',
+        ride:        'ride-offer',
+        event:       'create-event',
+        pg:          'list-pg',
+      };
+      const typeId = aliasMap[typeAlias] || typeAlias;
+      handleCreatorType(typeId);
+      return;
+    }
     setPage(p);
     setPageParams(params);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -231,6 +251,14 @@ export default function App() {
         </AnimatePresence>
 
         <AuthModal isOpen={authOpen} onClose={() => { setAuthOpen(false); setPostAfterLogin(false); setPendingCreatorType(null); }} />
+
+        {/* Root-level Universal Creator — opened by Navbar "Post" button and navigate('post') */}
+        <UniversalCreator
+          isOpen={creatorSheetOpen}
+          onClose={() => setCreatorSheetOpen(false)}
+          onSelect={(typeId) => { setCreatorSheetOpen(false); setTimeout(() => handleCreatorType(typeId), 180); }}
+          context={page}
+        />
 
         {/* Existing UniversalPost modal — only for non-community post types */}
         {postOpen && (

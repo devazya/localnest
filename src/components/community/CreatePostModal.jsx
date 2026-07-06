@@ -14,8 +14,13 @@ import {
   FieldLabel, fieldInputStyle, TextField, Toggle,
   RideOfferFields, RideRequestFields, EventFields, BuySellFields, PollFields, AnnouncementFields,
 } from './PostFormFields';
+import { useDraft } from '../creator/useDraft';
+import { mergeHashtagsIntoMeta } from '../../services/hashtags';
 
 export default function CreatePostModal({ onClose, onCreated, channels, currentChannelId, user, isAdmin }) {
+  const { draft, autoSave, clearDraft, hasDraft } = useDraft('community-post');
+  const [showDraftBar, setShowDraftBar] = useState(hasDraft);
+
   const [step, setStep]               = useState(1); // 1 type, 2 channel, 3 form, 4 preview
   const [postType, setPostType]       = useState('post');
   const [channelSlug, setChannelSlug] = useState(channels.find(c => c.id === currentChannelId)?.slug || 'general');
@@ -33,6 +38,26 @@ export default function CreatePostModal({ onClose, onCreated, channels, currentC
 
   const visiblePostTypes = POST_TYPES.filter(pt => !pt.adminOnly || isAdmin);
 
+  const handleTitleChange = (val) => {
+    setTitle(val);
+    autoSave({ title: val, body, postType, channelSlug, anon });
+  };
+
+  const handleBodyChange = (val) => {
+    setBody(val);
+    autoSave({ title, body: val, postType, channelSlug, anon });
+  };
+
+  const handleRestoreDraft = () => {
+    if (!draft) return;
+    if (draft.title)      setTitle(draft.title);
+    if (draft.body)       setBody(draft.body);
+    if (draft.postType)   setPostType(draft.postType);
+    if (draft.channelSlug && channels.some(c => c.slug === draft.channelSlug)) setChannelSlug(draft.channelSlug);
+    if (draft.anon !== undefined) setAnon(draft.anon);
+    setShowDraftBar(false);
+  };
+
   const submit = async () => {
     if (!title.trim()) { setError('Title is required.'); return; }
     if (!user) { setError('Sign in to post.'); return; }
@@ -41,6 +66,7 @@ export default function CreatePostModal({ onClose, onCreated, channels, currentC
       if (opts.length < 2) { setError('Add at least 2 poll options.'); return; }
     }
     setLoading(true); setError('');
+    const metadata = mergeHashtagsIntoMeta(fields, title, body);
     const insertPayload = {
       channel_id: channelId,
       author_id: user.id,
@@ -48,7 +74,7 @@ export default function CreatePostModal({ onClose, onCreated, channels, currentC
       body: body.trim() || null,
       is_anonymous: anon,
       post_type: postType,
-      metadata: fields,
+      metadata,
       is_pinned: postType === 'announcement' && !!fields.pinned,
     };
     const { data, error: e } = await supabase.from('community_posts')
@@ -57,6 +83,7 @@ export default function CreatePostModal({ onClose, onCreated, channels, currentC
       .single();
     setLoading(false);
     if (e) { setError(e.message); return; }
+    clearDraft();
     onCreated(data); onClose();
   };
 
@@ -96,6 +123,22 @@ export default function CreatePostModal({ onClose, onCreated, channels, currentC
         <div style={{ margin: '12px 20px 0', height: 3, background: '#F3F0FF', borderRadius: 3 }}>
           <motion.div animate={{ width: `${(step / totalSteps) * 100}%` }} style={{ height: '100%', background: 'linear-gradient(90deg, #6D4AFF, #9B6AFF)', borderRadius: 3 }} />
         </div>
+
+        {/* Draft restore bar — shown on step 1 only */}
+        {showDraftBar && hasDraft && step === 1 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            margin: '10px 20px 0', padding: '10px 13px', borderRadius: 12,
+            background: 'rgba(109,74,255,0.05)', border: '1.5px solid rgba(109,74,255,0.14)',
+          }}>
+            <span style={{ fontSize: 17, flexShrink: 0 }}>📝</span>
+            <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: '#0D0820' }}>You have an unsaved draft</span>
+            <button onClick={() => setShowDraftBar(false)}
+              style={{ background: 'none', border: 'none', fontSize: 12, color: '#9CA3AF', cursor: 'pointer', padding: '3px 7px' }}>Discard</button>
+            <button onClick={handleRestoreDraft}
+              style={{ background: '#6D4AFF', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, color: '#fff', cursor: 'pointer', padding: '6px 12px' }}>Restore</button>
+          </div>
+        )}
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 36px' }}>
 
@@ -149,9 +192,9 @@ export default function CreatePostModal({ onClose, onCreated, channels, currentC
               </div>
 
               <FieldLabel>Title</FieldLabel>
-              <TextField value={title} onChange={setTitle} placeholder="What's on your mind?" />
+              <TextField value={title} onChange={handleTitleChange} placeholder="What's on your mind?" />
               <FieldLabel>Description (optional)</FieldLabel>
-              <textarea value={body} onChange={e => setBody(e.target.value)} placeholder="Add more details…" rows={3}
+              <textarea value={body} onChange={e => handleBodyChange(e.target.value)} placeholder="Add more details…" rows={3}
                 style={{ ...fieldInputStyle, resize: 'vertical', lineHeight: 1.6, marginBottom: 14 }}
                 onFocus={e => e.target.style.borderColor='#6D4AFF'} onBlur={e => e.target.style.borderColor='#E5E7EB'} />
 

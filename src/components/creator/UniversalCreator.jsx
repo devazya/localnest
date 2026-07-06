@@ -157,7 +157,7 @@ const CONTEXT_MAP = {
   'events':                'create-event',
   'pgs':                   'list-pg',
   'roommates':             'list-pg',
-  'home':                  'neighbourhood-update',
+  // 'home' intentionally omitted — no single obvious creation intent on the home feed
 };
 
 /* ── Action Card ────────────────────────────────────────────────────────────── */
@@ -280,8 +280,11 @@ function ActionCard({ option, isHighlighted, hasDraft, onClick, index }) {
 
 /* ── Main Universal Creator ─────────────────────────────────────────────────── */
 export default function UniversalCreator({ isOpen, onClose, onSelect, context = 'home' }) {
-  // Determine the smart default for the current context
-  const suggestedId = CONTEXT_MAP[context] || 'discussion';
+  // Determine the smart default for the current context.
+  // Only highlight a suggested option when the user is on a specific page
+  // (not on 'home' which has no single clear intent).
+  const suggestedId = CONTEXT_MAP[context] || null;
+  const showContextHint = !!suggestedId && context !== 'home';
 
   // Snapshot draft meta from localStorage on every open
   const draftMeta = getDraftMeta();
@@ -355,10 +358,10 @@ export default function UniversalCreator({ isOpen, onClose, onSelect, context = 
                   fontSize: 20, fontWeight: 800, color: '#0D0820',
                   fontFamily: 'var(--font-display)', letterSpacing: -0.4,
                 }}>
-                  Create Something
+                  Create
                 </div>
                 <div style={{ fontSize: 13, color: '#9CA3AF', marginTop: 3 }}>
-                  Choose what you want to create.
+                  Choose what you’d like to share with your neighbourhood.
                 </div>
               </div>
 
@@ -378,8 +381,8 @@ export default function UniversalCreator({ isOpen, onClose, onSelect, context = 
               </motion.button>
             </div>
 
-            {/* Smart context hint */}
-            {suggestedId && (
+            {/* Smart context hint — only when on a specific page, not generic home */}
+            {showContextHint && (
               <motion.div
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}

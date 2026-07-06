@@ -12,10 +12,15 @@ import { FieldLabel, fieldInputStyle, TextField } from './PostFormFields';
 import Avatar from './Avatar';
 import MentionAutocomplete from './MentionAutocomplete';
 import { getActiveMentionQuery, insertMention } from '../../services/social';
+import { useDraft } from '../creator/useDraft';
+import { mergeHashtagsIntoMeta } from '../../services/hashtags';
 
 const POST_SELECT = `id,author_id,channel_id,channel_slug,title,body,image_urls,is_anonymous,is_pinned,like_count,downvote_count,helpful_count,not_helpful_count,comment_count,post_type,nu_category,metadata,is_removed,report_count,expires_at,created_at,profiles:author_id(id,full_name,username,avatar_url,is_verified)`;
 
 export default function CreateUpdateModal({ onClose, onCreated, channelId, user, isAdmin }) {
+  const { draft, autoSave, clearDraft, hasDraft } = useDraft('neighbourhood-update');
+  const [showDraftBar, setShowDraftBar] = useState(hasDraft);
+
   const [title, setTitle]         = useState('');
   const [body, setBody]           = useState('');
   const [category, setCategory]   = useState('');
@@ -29,14 +34,29 @@ export default function CreateUpdateModal({ onClose, onCreated, channelId, user,
   const handleBodyChange = (e) => {
     const value = e.target.value;
     setBody(value);
+    autoSave({ title, body: value, category, expiresAt });
     const cursor = e.target.selectionStart ?? value.length;
     setMentionQuery(getActiveMentionQuery(value, cursor));
+  };
+
+  const handleTitleChange = (val) => {
+    setTitle(val);
+    autoSave({ title: val, body, category, expiresAt });
   };
 
   const handleSelectMention = (username) => {
     const next = insertMention(body, body.length, username);
     setBody(next);
     setMentionQuery(null);
+  };
+
+  const handleRestoreDraft = () => {
+    if (!draft) return;
+    if (draft.title)    setTitle(draft.title);
+    if (draft.body)     setBody(draft.body);
+    if (draft.category) { setCategory(draft.category); setStep(2); }
+    if (draft.expiresAt) setExpiresAt(draft.expiresAt);
+    setShowDraftBar(false);
   };
 
   const selectedCat = NU_CATEGORIES.find(c => c.id === category);
@@ -46,6 +66,7 @@ export default function CreateUpdateModal({ onClose, onCreated, channelId, user,
     if (!category)     { setError('Please select a category.'); return; }
     if (!user)         { setError('Sign in to post.'); return; }
     setLoading(true); setError('');
+    const metadata = mergeHashtagsIntoMeta({ badge: selectedCat?.label || 'Update' }, title, body);
     const payload = {
       channel_id: channelId,
       author_id: user.id,
@@ -55,7 +76,7 @@ export default function CreateUpdateModal({ onClose, onCreated, channelId, user,
       nu_category: category,
       is_pinned: !!(isAdmin && pinned),
       expires_at: expiresAt || null,
-      metadata: { badge: selectedCat?.label || 'Update' },
+      metadata,
     };
     const { data, error: e } = await supabase
       .from('community_posts')
@@ -64,6 +85,7 @@ export default function CreateUpdateModal({ onClose, onCreated, channelId, user,
       .single();
     setLoading(false);
     if (e) { setError(e.message); return; }
+    clearDraft();
     onCreated(data);
     onClose();
   };
@@ -108,6 +130,22 @@ export default function CreateUpdateModal({ onClose, onCreated, channelId, user,
             style={{ height: '100%', background: 'linear-gradient(90deg, #D97706, #F59E0B)', borderRadius: 3 }}
           />
         </div>
+
+        {/* Draft restore bar */}
+        {showDraftBar && hasDraft && step === 1 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            margin: '10px 20px 0', padding: '10px 13px', borderRadius: 12,
+            background: 'rgba(217,119,6,0.05)', border: '1.5px solid rgba(217,119,6,0.18)',
+          }}>
+            <span style={{ fontSize: 17, flexShrink: 0 }}>📝</span>
+            <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: '#0D0820' }}>You have an unsaved draft</span>
+            <button onClick={() => setShowDraftBar(false)}
+              style={{ background: 'none', border: 'none', fontSize: 12, color: '#9CA3AF', cursor: 'pointer', padding: '3px 7px' }}>Discard</button>
+            <button onClick={handleRestoreDraft}
+              style={{ background: '#D97706', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, color: '#fff', cursor: 'pointer', padding: '6px 12px' }}>Restore</button>
+          </div>
+        )}
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 36px' }}>
 
@@ -157,7 +195,7 @@ export default function CreateUpdateModal({ onClose, onCreated, channelId, user,
               )}
 
               <FieldLabel>Title *</FieldLabel>
-              <TextField value={title} onChange={setTitle} placeholder="What's the update?" />
+              <TextField value={title} onChange={handleTitleChange} placeholder="What's the update?" />
 
               <FieldLabel>Description</FieldLabel>
               <textarea

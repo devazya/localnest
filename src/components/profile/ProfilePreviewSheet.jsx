@@ -1,32 +1,28 @@
 /**
  * ProfilePreviewSheet.jsx — Social Identity & Follow System (Segment 5.1)
  *                          + Trust & Reputation System (Segment 5.2)
- * Bottom sheet opened by clicking any avatar anywhere in LocalNest.
- * Avatar / Name / Username / Locality / Neighbour Score / Trust Level /
- * Featured Badges / Followers / Following / Contribution Count +
- * Follow, View Profile, Message (Coming Soon), Invite (Coming Soon).
- * Buttons are unchanged from Segment 5.1 — only the summary above them
- * gained the reputation snapshot.
+ *                          + Profile UI Premium Polish
+ *
+ * Compact, centered "3D style" overlay card opened by clicking any avatar
+ * anywhere in LocalNest. It never navigates or changes screen — it's a
+ * floating popover: Avatar / Name / Username / Neighbour Score / Trust
+ * Level / Featured Badges / Followers / Following / Contribution Count +
+ * Follow / View Profile.
  */
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Avatar from '../community/Avatar';
-import ProfileStats from './ProfileStats';
 import FollowButton from './FollowButton';
 import NeighbourScoreCard from './NeighbourScoreCard';
 import BadgeRow from './BadgeRow';
 import MutualConnectionsLine from './MutualConnectionsLine';
 import ProfileQuickActionsMenu from './ProfileQuickActionsMenu';
-import ShareProfileSheet from './ShareProfileSheet';
-import ContributionTimeline from './ContributionTimeline';
+import AnimatedNumber from '../community/AnimatedNumber';
 import { fetchProfile, fetchFollowCounts, fetchIsFollowing, subscribeToFollowChanges } from '../../services/followers';
 import {
   fetchContributionStats, totalContributions, computeNeighbourScore, getTrustLevel,
-  fetchVerifications, computeBadges, fetchContributionTimeline, subscribeToReputationChanges,
+  fetchVerifications, computeBadges, subscribeToReputationChanges,
 } from '../../services/reputation';
-import { fetchIsMuted } from '../../services/social';
-
-const ACTIVITY_PREVIEW_LIMIT = 5;
 
 export default function ProfilePreviewSheet({ userId, viewerId, onClose, onViewProfile }) {
   const [profile, setProfile]   = useState(null);
@@ -35,10 +31,6 @@ export default function ProfilePreviewSheet({ userId, viewerId, onClose, onViewP
   const [loading, setLoading]   = useState(false);
   const [stats, setStats]       = useState(null);
   const [badges, setBadges]     = useState([]);
-  const [timeline, setTimeline] = useState([]);
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [isMuted, setIsMuted]   = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   const [toast, setToast]       = useState(null);
 
   const showToast = useCallback((msg) => {
@@ -62,24 +54,19 @@ export default function ProfilePreviewSheet({ userId, viewerId, onClose, onViewP
   const reloadReputation = useCallback(async (currentProfile) => {
     if (!userId) return;
     try {
-      setTimelineLoading(true);
-      const [s, verifs, tl] = await Promise.all([
+      const [s, verifs] = await Promise.all([
         fetchContributionStats(userId),
         fetchVerifications(userId, currentProfile),
-        fetchContributionTimeline(userId),
       ]);
       setStats(s);
       setBadges(computeBadges(s, currentProfile, verifs));
-      setTimeline(tl.slice(0, ACTIVITY_PREVIEW_LIMIT));
     } catch (err) {
       console.error('ProfilePreviewSheet reputation reload failed:', err);
-    } finally {
-      setTimelineLoading(false);
     }
   }, [userId]);
 
   useEffect(() => {
-    if (!userId) { setProfile(null); setStats(null); setBadges([]); setTimeline([]); setIsMuted(false); return; }
+    if (!userId) { setProfile(null); setStats(null); setBadges([]); return; }
     let cancelled = false;
     setLoading(true);
     (async () => {
@@ -87,7 +74,6 @@ export default function ProfilePreviewSheet({ userId, viewerId, onClose, onViewP
         const [p] = await Promise.all([fetchProfile(userId), reload()]);
         if (!cancelled) setProfile(p);
         if (!cancelled) await reloadReputation(p);
-        if (!cancelled && viewerId && viewerId !== userId) setIsMuted(await fetchIsMuted(viewerId, userId));
       } catch (err) {
         console.error('Failed to load profile preview:', err);
       } finally {
@@ -112,7 +98,7 @@ export default function ProfilePreviewSheet({ userId, viewerId, onClose, onViewP
   const isOpen = !!userId;
   const isOwn  = viewerId && viewerId === userId;
   const name   = profile?.full_name || profile?.username || 'Resident';
-  const contributions = stats ? totalContributions(stats) : undefined;
+  const contributions = stats ? totalContributions(stats) : 0;
   const score  = stats ? computeNeighbourScore(stats) : 0;
   const trustLabel = getTrustLevel(score).label;
 
@@ -123,119 +109,97 @@ export default function ProfilePreviewSheet({ userId, viewerId, onClose, onViewP
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(13,8,32,0.45)', zIndex: 200, backdropFilter: 'blur(2px)' }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(13,8,32,0.5)', zIndex: 200, backdropFilter: 'blur(3px)' }}
           />
-          <motion.div
-            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 32, stiffness: 320 }}
-            style={{
-              position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 201,
-              background: '#fff', borderRadius: '24px 24px 0 0', padding: '10px 22px calc(24px + env(safe-area-inset-bottom))',
-              boxShadow: '0 -12px 40px rgba(0,0,0,0.18)', maxWidth: 480, margin: '0 auto',
-            }}
-          >
-            <div style={{ width: 40, height: 4, borderRadius: 4, background: '#E5E7EB', margin: '4px auto 18px' }} />
-
-            {loading && !profile ? (
-              <div style={{ padding: '40px 0', textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>Loading…</div>
-            ) : profile ? (
-              <>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                  <Avatar profile={profile} size={64} disablePreview />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#0D0820', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                      {profile.is_verified && <span style={{ fontSize: 11, color: '#6D4AFF' }}>✓</span>}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 201, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, pointerEvents: 'none' }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 8 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 340 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%', maxWidth: 320, background: '#fff', borderRadius: 26,
+                padding: '20px 18px', pointerEvents: 'auto',
+                boxShadow: '0 30px 60px -12px rgba(45,15,120,0.45), 0 8px 20px -4px rgba(45,15,120,0.2)',
+              }}
+            >
+              {loading && !profile ? (
+                <div style={{ padding: '40px 0', textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>Loading…</div>
+              ) : profile ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <div style={{ boxShadow: '0 6px 16px -4px rgba(45,15,120,0.3)', borderRadius: '50%' }}>
+                      <Avatar profile={profile} size={58} disablePreview />
                     </div>
-                    {profile.username && <div style={{ fontSize: 12.5, color: '#9CA3AF', marginTop: 1 }}>@{profile.username}</div>}
-                    {profile.locality && <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 1 }}>📍 {profile.locality}{profile.city ? `, ${profile.city}` : ''}</div>}
-                    {!isOwn && <MutualConnectionsLine viewerId={viewerId} targetId={profile.id} />}
-                  </div>
-                  {!isOwn && (
-                    <ProfileQuickActionsMenu
-                      viewerId={viewerId}
-                      profile={profile}
-                      isMuted={isMuted}
-                      onMuteChange={setIsMuted}
-                      onToast={showToast}
-                    />
-                  )}
-                </div>
-
-                <div style={{ marginTop: 16, background: '#FAFAFF', border: '1px solid #F0EEFF', borderRadius: 16, padding: '12px 14px' }}>
-                  <NeighbourScoreCard score={score} trustLabel={trustLabel} />
-                </div>
-
-                {badges.length > 0 && (
-                  <div style={{ marginTop: 12 }}>
-                    <BadgeRow badges={badges} size="sm" />
-                  </div>
-                )}
-
-                <div style={{ marginTop: 14 }}>
-                  <ProfileStats followers={counts.followers} following={counts.following} contributions={contributions} />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: isOwn ? '1fr' : 'auto 1fr', gap: 10, marginTop: 20 }}>
-                  {!isOwn && (
-                    <FollowButton
-                      viewerId={viewerId}
-                      targetId={profile.id}
-                      isFollowing={isFollowing}
-                      onChange={(next) => { setIsFollowing(next); setCounts(c => ({ ...c, followers: Math.max(0, c.followers + (next ? 1 : -1)) })); }}
-                    />
-                  )}
-                  <button
-                    onClick={() => onViewProfile?.(profile.id)}
-                    style={{
-                      padding: '9px 22px', borderRadius: 999, fontSize: 13.5, fontWeight: 700,
-                      background: '#F5F4FF', color: '#6D4AFF', border: 'none', cursor: 'pointer',
-                    }}
-                  >
-                    View Profile
-                  </button>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
-                  <button disabled style={{ padding: '9px 14px', borderRadius: 999, fontSize: 13, fontWeight: 600, background: '#FAFAFA', color: '#C0C0CC', border: '1.5px solid #F0F0F0', cursor: 'not-allowed' }}>
-                    💬 Message · Soon
-                  </button>
-                  <button disabled style={{ padding: '9px 14px', borderRadius: 999, fontSize: 13, fontWeight: 600, background: '#FAFAFA', color: '#C0C0CC', border: '1.5px solid #F0F0F0', cursor: 'not-allowed' }}>
-                    ✉️ Invite · Soon
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => setShareOpen(true)}
-                  style={{
-                    width: '100%', marginTop: 10, padding: '9px 14px', borderRadius: 999, fontSize: 13,
-                    fontWeight: 600, background: '#FAFAFF', color: '#6D4AFF', border: '1.5px solid #F0EEFF', cursor: 'pointer',
-                  }}
-                >
-                  📤 Share Profile
-                </button>
-
-                {(timeline.length > 0 || timelineLoading) && (
-                  <div style={{ marginTop: 18 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 700, color: '#0D0820' }}>Recent Activity</div>
-                      <button
-                        onClick={() => onViewProfile?.(profile.id)}
-                        style={{ background: 'none', border: 'none', fontSize: 11.5, fontWeight: 700, color: '#6D4AFF', cursor: 'pointer', padding: 0 }}
-                      >
-                        View Profile →
-                      </button>
+                    <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <div style={{ fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700, color: '#0D0820', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                        {profile.is_verified && <span style={{ fontSize: 11, color: '#6D4AFF' }}>✓</span>}
+                      </div>
+                      {profile.username && <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 1 }}>@{profile.username}</div>}
+                      {!isOwn && <MutualConnectionsLine viewerId={viewerId} targetId={profile.id} />}
                     </div>
-                    <ContributionTimeline items={timeline} loading={timelineLoading} />
+                    {!isOwn && (
+                      <ProfileQuickActionsMenu
+                        viewerId={viewerId}
+                        profile={profile}
+                        onToast={showToast}
+                        iconOnly
+                      />
+                    )}
                   </div>
-                )}
-              </>
-            ) : (
-              <div style={{ padding: '40px 0', textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>Couldn't load this profile.</div>
-            )}
-          </motion.div>
 
-          {shareOpen && <ShareProfileSheet profile={profile} onClose={() => setShareOpen(false)} />}
+                  <div style={{ marginTop: 14, background: 'linear-gradient(160deg, #FDFCFF 0%, #F1ECFF 100%)', border: '1px solid #F0EEFF', borderRadius: 18, padding: '12px 14px' }}>
+                    <NeighbourScoreCard score={score} trustLabel={trustLabel} />
+                  </div>
+
+                  {badges.length > 0 && (
+                    <div style={{ marginTop: 10 }}>
+                      <BadgeRow badges={badges} size="sm" />
+                    </div>
+                  )}
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 12 }}>
+                    {[
+                      { label: 'Contributions', value: contributions },
+                      { label: 'Followers', value: counts.followers },
+                      { label: 'Following', value: counts.following },
+                    ].map(s => (
+                      <div key={s.label} style={{ background: '#F8F7FF', border: '1px solid #F1EEFF', borderRadius: 12, padding: '8px 4px', textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'var(--font-display)', fontSize: 14.5, fontWeight: 800, color: '#0D0820', lineHeight: 1 }}>
+                          <AnimatedNumber value={s.value || 0} />
+                        </div>
+                        <div style={{ fontSize: 9, fontWeight: 600, color: '#9CA3AF', marginTop: 3 }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: isOwn ? '1fr' : 'auto 1fr', gap: 8, marginTop: 14 }}>
+                    {!isOwn && (
+                      <FollowButton
+                        viewerId={viewerId}
+                        targetId={profile.id}
+                        isFollowing={isFollowing}
+                        onChange={(next) => { setIsFollowing(next); setCounts(c => ({ ...c, followers: Math.max(0, c.followers + (next ? 1 : -1)) })); }}
+                      />
+                    )}
+                    <button
+                      onClick={() => onViewProfile?.(profile.id)}
+                      style={{
+                        padding: '9px 18px', borderRadius: 999, fontSize: 13, fontWeight: 700,
+                        background: '#F5F4FF', color: '#6D4AFF', border: 'none', cursor: 'pointer',
+                      }}
+                    >
+                      View Profile
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div style={{ padding: '40px 0', textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>Couldn't load this profile.</div>
+              )}
+            </motion.div>
+          </div>
 
           <AnimatePresence>
             {toast && (

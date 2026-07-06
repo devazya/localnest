@@ -7,6 +7,7 @@
 import { motion } from 'framer-motion';
 import AnimatedNumber from '../community/AnimatedNumber';
 import TrustLevel from './TrustLevel';
+import ShieldBadge from './ShieldBadge';
 
 export default function NeighbourScoreCard({ score = 0, trustLabel, light = false, standing = null }) {
   const r = 30;
@@ -54,24 +55,9 @@ export default function NeighbourScoreCard({ score = 0, trustLabel, light = fals
         )}
       </div>
 
-      {/* 3D lifted shield with sparkle accents — decorative, matches reference */}
-      <div style={{ position: 'relative', width: 58, height: 62, flexShrink: 0 }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" style={{ position: 'absolute', top: -4, left: -6 }}>
-          <path d="M12 0l2 8 8 2-8 2-2 8-2-8-8-2 8-2z" fill="#FFC93C" />
-        </svg>
-        <svg width="9" height="9" viewBox="0 0 24 24" style={{ position: 'absolute', bottom: 6, right: -4 }}>
-          <path d="M12 0l2 8 8 2-8 2-2 8-2-8-8-2 8-2z" fill="#B9A8FF" />
-        </svg>
-        <svg width="58" height="62" viewBox="0 0 58 62" style={{ filter: 'drop-shadow(0 6px 10px rgba(76,29,149,0.35))' }}>
-          <defs>
-            <linearGradient id="nsc-shield-grad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#9C87FF" />
-              <stop offset="100%" stopColor="#6D4AFF" />
-            </linearGradient>
-          </defs>
-          <path d="M29 1 L54 10 V29 C54 45 43 55 29 60 C15 55 4 45 4 29 V10 Z" fill="url(#nsc-shield-grad)" />
-          <path d="M29 16 L32.6 25.4 L42.6 25.9 L34.8 32.1 L37.5 41.6 L29 36.1 L20.5 41.6 L23.2 32.1 L15.4 25.9 L25.4 25.4 Z" fill="#fff" />
-        </svg>
+      {/* Premium 3D shield badge — decorative, matches reference */}
+      <div style={{ flexShrink: 0 }}>
+        <ShieldBadge size={58} />
       </div>
     </div>
   );

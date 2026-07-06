@@ -32,7 +32,7 @@ function Placeholder({ label }) {
 export default function ProfileTabs({ activeKey, onChange, overviewContent, activityContent }) {
   return (
     <div>
-      <div style={{ display: 'flex', gap: 4, overflowX: 'auto', padding: '4px 20px', borderBottom: '1.5px solid #F0EEFF', scrollbarWidth: 'none' }}>
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '10px 16px', borderBottom: '1.5px solid #F0EEFF', scrollbarWidth: 'none' }}>
         {TABS.map(t => {
           const active = t.key === activeKey;
           return (
@@ -41,17 +41,19 @@ export default function ProfileTabs({ activeKey, onChange, overviewContent, acti
               onClick={() => onChange(t.key)}
               style={{
                 position: 'relative', flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer',
-                padding: '10px 14px', fontSize: 13, fontWeight: 700,
-                color: active ? '#6D4AFF' : '#9CA3AF', whiteSpace: 'nowrap',
+                padding: '9px 16px', fontSize: 13, fontWeight: 700, borderRadius: 999,
+                color: active ? '#fff' : '#9CA3AF', whiteSpace: 'nowrap', zIndex: 1,
+                transition: 'color 0.2s',
               }}
             >
-              {t.label}
               {active && (
-                <motion.div layoutId="profile-tab-underline" style={{
-                  position: 'absolute', bottom: -1.5, left: 6, right: 6, height: 2.5,
-                  borderRadius: 2, background: '#6D4AFF',
+                <motion.div layoutId="profile-tab-pill" transition={{ type: 'spring', damping: 26, stiffness: 340 }} style={{
+                  position: 'absolute', inset: 0, borderRadius: 999,
+                  background: 'linear-gradient(135deg, #6D4AFF 0%, #8F7BFF 100%)',
+                  boxShadow: '0 6px 14px -4px rgba(76,29,149,0.4)', zIndex: -1,
                 }} />
               )}
+              {t.label}
             </button>
           );
         })}

@@ -438,7 +438,8 @@ export default function Community({ onNavigate, autoOpen }) {
       const row = await createDiscussionRow({ title, description, community_channel, category, creator_id: user.id });
       setAllDiscussions(prev => [row, ...prev.filter(d => d.id !== row.id)]);
       setShowCreateDiscussion(false);
-      setActiveDiscussionId(row.id);
+      // Auto-navigate into the newly created discussion (Segment 7.2)
+      setTimeout(() => setActiveDiscussionId(row.id), 120);
     } catch (err) {
       console.error('Failed to create discussion:', err);
     } finally {
@@ -632,11 +633,12 @@ export default function Community({ onNavigate, autoOpen }) {
       <AnimatePresence>
         {showCreateDiscussion && (
           <CreateDiscussionSheet
-            onClose={() => setShowCreateDiscussion(false)}
-            onCreate={handleCreateDiscussion}
-            defaultChannelSlug={activeSlug}
-            submitting={creatingDiscussion}
-          />
+          onClose={() => setShowCreateDiscussion(false)}
+          onCreate={handleCreateDiscussion}
+          defaultChannelSlug={activeSlug}
+          submitting={creatingDiscussion}
+            user={user}
+              />
         )}
       </AnimatePresence>
 

@@ -9,7 +9,7 @@
  */
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import profileBg from '../../assets/images/profile bg.png';
+import ProfileHeroBackground from './ProfileHeroBackground';
 import ProfileAvatar from './ProfileAvatar';
 import AnimatedNumber from '../community/AnimatedNumber';
 import FollowButton from './FollowButton';
@@ -74,17 +74,9 @@ export default function ProfileHeader({
       {/* ── HERO — "profile bg" asset, edge-to-edge, rounded bottom corners ── */}
       <div style={{
         position: 'relative', overflow: 'hidden', padding: '26px 20px 64px',
-        borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
+        borderBottomLeftRadius: 20, borderBottomRightRadius: 20,
       }}>
-        <img
-          src={profileBg}
-          alt=""
-          draggable={false}
-          style={{
-            position: 'absolute', inset: 0, width: '100%', height: '100%',
-            objectFit: 'cover', zIndex: 0, userSelect: 'none', pointerEvents: 'none',
-          }}
-        />
+        <ProfileHeroBackground />
 
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
@@ -134,14 +126,11 @@ export default function ProfileHeader({
             </div>
 
             {!isOwnProfile && viewerId && (
-              <div style={{ display: 'flex', gap: 6 }}>
-                <ShareIconButton onClick={() => setShareOpen(true)} />
-                <ProfileQuickActionsMenu
-                  viewerId={viewerId}
-                  profile={profile}
-                  onToast={showToast}
-                />
-              </div>
+              <ProfileQuickActionsMenu
+                viewerId={viewerId}
+                profile={profile}
+                onToast={showToast}
+              />
             )}
             {isOwnProfile && (
               <button
@@ -169,7 +158,7 @@ export default function ProfileHeader({
 
       {/* ── Neighbour Score — overlaps the hero/white boundary ── */}
       <div style={{
-        margin: '-46px 20px 0', position: 'relative', zIndex: 10,
+        margin: '-30px 20px 0', position: 'relative', zIndex: 10,
         background: 'linear-gradient(160deg, #FDFCFF 0%, #F1ECFF 100%)', borderRadius: 20,
         padding: '18px 20px', boxShadow: '0 18px 34px -10px rgba(45,15,120,0.4), 0 2px 6px rgba(45,15,120,0.1)',
       }}>
@@ -242,12 +231,6 @@ export default function ProfileHeader({
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><path d="M20 8v6M23 11h-6" /></svg>
               Invite
             </motion.button>
-            <ProfileQuickActionsMenu
-              viewerId={viewerId}
-              profile={profile}
-              onToast={showToast}
-              iconOnly
-            />
           </div>
         )}
       </div>
@@ -264,22 +247,5 @@ export default function ProfileHeader({
         </div>
       )}
     </div>
-  );
-}
-
-function ShareIconButton({ onClick }) {
-  return (
-    <motion.button
-      whileTap={{ scale: 0.9 }}
-      onClick={onClick}
-      aria-label="Share profile"
-      style={{
-        width: 34, height: 34, borderRadius: '50%', border: 'none',
-        background: 'rgba(255,255,255,0.16)', color: '#fff', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', cursor: 'pointer', flexShrink: 0, backdropFilter: 'blur(6px)',
-      }}
-    >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" /></svg>
-    </motion.button>
   );
 }

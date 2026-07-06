@@ -10,9 +10,12 @@
  * auto-suggestion stays out of the way (placeholder only, never overwrites).
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { CHANNELS, DISCUSSION_CHANNEL_SLUGS, DISCUSSION_CATEGORIES, DEFAULT_DISCUSSION_CATEGORIES } from './constants';
+import { useDraft } from '../creator/useDraft';
+import { getActiveMentionQuery, insertMention } from '../../services/social';
+import MentionAutocomplete from './MentionAutocomplete';
 
 // ─── Contextual placeholder map ───────────────────────────────────────────────
 // Keyed as `channelSlug:category` → example title string.
@@ -96,7 +99,7 @@ function getPlaceholder(channelSlug, category) {
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function CreateDiscussionSheet({ onClose, onCreate, defaultChannelSlug, submitting }) {
+export default function CreateDiscussionSheet({ onClose, onCreate, defaultChannelSlug, submitting, user }) {
   const discussionChannels = useMemo(
     () => CHANNELS.filter(c => DISCUSSION_CHANNEL_SLUGS.includes(c.slug)),
     []
@@ -106,14 +109,40 @@ export default function CreateDiscussionSheet({ onClose, onCreate, defaultChanne
     ? defaultChannelSlug
     : (discussionChannels[0]?.slug || 'general');
 
+  const { draft, autoSave, clearDraft, hasDraft } = useDraft('discussion');
+  const [showDraftBar, setShowDraftBar]   = useState(hasDraft);
   const [title, setTitle]           = useState('');
   const [channelSlug, setChannelSlug] = useState(initialSlug);
   const [description, setDescription] = useState('');
+  const [mentionQuery, setMentionQuery] = useState(null);
+  const descRef = useRef(null);
 
   const categories = DISCUSSION_CATEGORIES[channelSlug] || DEFAULT_DISCUSSION_CATEGORIES;
   const [category, setCategory] = useState(categories[0]);
 
   const placeholder = getPlaceholder(channelSlug, category);
+
+  // Auto-save draft on every keystroke
+  const handleTitleChange = (val) => {
+    setTitle(val);
+    autoSave({ title: val, description, channelSlug, category });
+  };
+
+  const handleDescriptionChange = (e) => {
+    const value = e.target.value;
+    setDescription(value);
+    autoSave({ title, description: value, channelSlug, category });
+    const cursor = e.target.selectionStart ?? value.length;
+    setMentionQuery(getActiveMentionQuery(value, cursor));
+  };
+
+  const handleSelectMention = (username) => {
+    const cursor = descRef.current?.selectionStart ?? description.length;
+    const next = insertMention(description, cursor, username);
+    setDescription(next);
+    setMentionQuery(null);
+    requestAnimationFrame(() => descRef.current?.focus());
+  };
 
   const handleChannelChange = (slug) => {
     setChannelSlug(slug);
@@ -129,7 +158,20 @@ export default function CreateDiscussionSheet({ onClose, onCreate, defaultChanne
 
   const handleCreate = () => {
     if (!canCreate) return;
+    clearDraft();
     onCreate({ title: title.trim(), community_channel: channelSlug, category, description: description.trim() });
+  };
+
+  const handleRestoreDraft = () => {
+    if (!draft) return;
+    if (draft.title)       setTitle(draft.title);
+    if (draft.description) setDescription(draft.description);
+    if (draft.channelSlug && discussionChannels.some(c => c.slug === draft.channelSlug)) {
+      setChannelSlug(draft.channelSlug);
+      const cats = DISCUSSION_CATEGORIES[draft.channelSlug] || DEFAULT_DISCUSSION_CATEGORIES;
+      if (draft.category && cats.includes(draft.category)) setCategory(draft.category);
+    }
+    setShowDraftBar(false);
   };
 
   return (
@@ -148,16 +190,32 @@ export default function CreateDiscussionSheet({ onClose, onCreate, defaultChanne
       >
         <div style={{ width: 40, height: 4, borderRadius: 999, background: '#E5E2FF', margin: '0 auto 18px' }} />
 
-        <div style={{ fontSize: 18, fontWeight: 700, color: '#0D0820', fontFamily: 'var(--font-display)', marginBottom: 18 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#0D0820', fontFamily: 'var(--font-display)', marginBottom: showDraftBar ? 10 : 18 }}>
           Create Discussion
         </div>
+
+        {/* ── Draft restore bar ── */}
+        {showDraftBar && hasDraft && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
+            padding: '10px 13px', borderRadius: 12,
+            background: 'rgba(109,74,255,0.05)', border: '1.5px solid rgba(109,74,255,0.14)',
+          }}>
+            <span style={{ fontSize: 17, flexShrink: 0 }}>📝</span>
+            <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: '#0D0820' }}>You have an unsaved draft</span>
+            <button onClick={() => setShowDraftBar(false)}
+              style={{ background: 'none', border: 'none', fontSize: 12, color: '#9CA3AF', cursor: 'pointer', padding: '3px 7px' }}>Discard</button>
+            <button onClick={handleRestoreDraft}
+              style={{ background: '#6D4AFF', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, color: '#fff', cursor: 'pointer', padding: '6px 12px' }}>Restore</button>
+          </div>
+        )}
 
         {/* ── Title input — placeholder updates with channel + category ── */}
         <label style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.6 }}>Discussion Title</label>
         <motion.input
           key={placeholder}                      // re-mounts smoothly when placeholder changes
           value={title}
-          onChange={e => setTitle(e.target.value)}
+          onChange={e => handleTitleChange(e.target.value)}
           placeholder={placeholder}
           autoFocus
           initial={{ opacity: 0.6 }}
@@ -221,15 +279,19 @@ export default function CreateDiscussionSheet({ onClose, onCreate, defaultChanne
 
         {/* ── Description ── */}
         <label style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.6 }}>Description (optional)</label>
+        <MentionAutocomplete query={mentionQuery} excludeId={user?.id} onSelect={handleSelectMention} />
         <textarea
-          value={description} onChange={e => setDescription(e.target.value)}
-          placeholder="What's this discussion about?" rows={3}
+          ref={descRef}
+          value={description} onChange={handleDescriptionChange}
+          placeholder="What's this discussion about? Try @name to mention someone or #tag" rows={3}
           style={{
             width: '100%', marginTop: 7, marginBottom: 22, padding: '12px 14px',
             borderRadius: 14, border: '1.5px solid #EDE9FF', background: '#F8F7FF',
             fontSize: 14, color: '#0D0820', outline: 'none', resize: 'none',
             fontFamily: 'inherit', boxSizing: 'border-box',
           }}
+          onFocus={e => e.target.style.borderColor='#6D4AFF'}
+          onBlur={e => { e.target.style.borderColor='#EDE9FF'; setMentionQuery(null); }}
         />
 
         <motion.button
