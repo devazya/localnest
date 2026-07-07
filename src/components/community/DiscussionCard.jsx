@@ -51,7 +51,7 @@ export default function DiscussionCard({ discussion, channelMeta, memberCount = 
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#0D0820', fontFamily: 'var(--font-display)' }}>{title}</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: '#0D0820', fontFamily: 'var(--font-display)' }}>{title}</span>
             {live && (
               <span style={{
                 display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999,
@@ -87,7 +87,7 @@ export default function DiscussionCard({ discussion, channelMeta, memberCount = 
           whileTap={{ scale: 0.94 }}
           style={{
             background: '#F3F0FF', color: '#6D4AFF', border: 'none', borderRadius: 999,
-            padding: '7px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+            padding: '7px 14px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', flexShrink: 0,
           }}
         >
           Join →

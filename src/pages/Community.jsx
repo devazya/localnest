@@ -39,6 +39,8 @@ import CommunityChatScreen from '../components/community/CommunityChatScreen';
 import DiscussionRoom from '../components/community/DiscussionRoom';
 import CreateDiscussionSheet from '../components/community/CreateDiscussionSheet';
 import NeighbourhoodUpdates from '../components/community/NeighbourhoodUpdates';
+import ActivityCenter from '../components/activity/ActivityCenter';
+import { useActivityCenter } from '../hooks/useActivityCenter';
 
 const POST_SELECT = `id,author_id,channel_id,channel_slug,title,body,image_urls,is_anonymous,is_pinned,like_count,downvote_count,comment_count,post_type,metadata,is_removed,report_count,created_at,updated_at,profiles:author_id(id,full_name,username,avatar_url,is_verified)`;
 
@@ -66,9 +68,18 @@ export default function Community({ onNavigate, autoOpen }) {
   const [activityChannels, setActivityChannels] = useState([]);
   const [viewAnyway, setViewAnyway]           = useState({});
   const [showChatScreen, setShowChatScreen]   = useState(false);
+  const [showActivityCenter, setShowActivityCenter] = useState(false);
   const [showCreateDiscussion, setShowCreateDiscussion] = useState(false);
   const [creatingDiscussion, setCreatingDiscussion] = useState(false);
   const [activeDiscussionId, setActiveDiscussionId] = useState(null);
+
+  // Discussion Room messages — lifted up here (instead of living inside
+  // DiscussionRoom's own local state) so they SURVIVE leaving and
+  // re-entering a room. DiscussionRoom unmounts on back/leave; keeping the
+  // map here, in a component that stays mounted for the whole Community
+  // session, is what stops messages from vanishing on return. Keyed by
+  // discussion id. No schema/table change — still fully client-side.
+  const [discussionMessagesById, setDiscussionMessagesById] = useState({});
 
   // ─ Universal Creator auto-open (Segment 7.1) ─
   // When the Universal Creator routes here with an autoOpen signal,
@@ -129,6 +140,11 @@ export default function Community({ onNavigate, autoOpen }) {
   }, [user]);
 
   const isAdmin = !!profile?.is_admin;
+
+  // Real personal-notification badge for the bell (Activity Center, Segment 8).
+  // Kept mounted (not just while the overlay is open) so the badge stays live
+  // via realtime even when the user hasn't opened the Activity screen yet.
+  const { unreadCount: activityUnreadCount } = useActivityCenter(user?.id);
 
   // ─ Load channels ─
   useEffect(() => {
@@ -448,11 +464,18 @@ export default function Community({ onNavigate, autoOpen }) {
   };
 
   // Every new message updates last_activity_at (sorting / Trending /
-  // Recently Active / Auto Archive). The Discussion Room's message list
-  // itself stays local/ephemeral (unchanged, not rebuilt this segment).
-  const handleDiscussionMessage = (discussionId) => {
+  // Recently Active / Auto Archive), AND is appended to this discussion's
+  // entry in discussionMessagesById so it's still there if the room is
+  // closed and reopened later in the same session.
+  const handleDiscussionMessage = (discussionId, message) => {
     const now = new Date().toISOString();
     setAllDiscussions(prev => prev.map(d => (d.id === discussionId ? { ...d, last_activity_at: now, status: 'active' } : d)));
+    if (message) {
+      setDiscussionMessagesById(prev => {
+        const existing = prev[discussionId] || activeDiscussion?.seedMessages || [];
+        return { ...prev, [discussionId]: [...existing, message] };
+      });
+    }
     touchDiscussionActivity(discussionId).catch((err) => console.error('Failed to update discussion activity:', err));
   };
 
@@ -532,12 +555,18 @@ export default function Community({ onNavigate, autoOpen }) {
       <CommunityHeader
         onOpenDrawer={() => setShowDrawer(true)}
         onOpenSearch={() => setShowSearch(true)}
-        totalUnread={totalUnread}
-        notifItems={notifItems}
+        onOpenActivity={() => setShowActivityCenter(true)}
+        activityUnreadCount={activityUnreadCount}
         user={user}
         onNavigate={onNavigate}
         onPostClick={() => setShowModal(true)}
       />
+
+      <AnimatePresence>
+        {showActivityCenter && user && (
+          <ActivityCenter userId={user.id} onClose={() => setShowActivityCenter(false)} />
+        )}
+      </AnimatePresence>
 
       <ChannelNavigation
         channels={channels}
@@ -622,6 +651,7 @@ export default function Community({ onNavigate, autoOpen }) {
           <DiscussionRoom
             key={activeDiscussion.id}
             discussion={activeDiscussion}
+            messages={discussionMessagesById[activeDiscussion.id] || activeDiscussion.seedMessages || []}
             user={user}
             onBack={() => setActiveDiscussionId(null)}
             onLeave={() => setActiveDiscussionId(null)}

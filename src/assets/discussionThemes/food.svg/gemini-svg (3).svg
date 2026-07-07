@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fedbd8"/>
+      <stop offset="100%" stop-color="#fca8a4"/>
+    </linearGradient>
+
+    <linearGradient id="bunGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f9b165"/>
+      <stop offset="80%" stop-color="#c9712a"/>
+      <stop offset="100%" stop-color="#a8571c"/>
+    </linearGradient>
+
+    <radialGradient id="platform" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f69993" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#fca8a4" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="400" height="500" rx="40" fill="url(#bgGrad)"/>
+
+  <ellipse cx="200" cy="350" rx="160" ry="50" fill="url(#platform)"/>
+
+  <g fill="#ffffff" opacity="0.6">
+    <path d="M 70 80 Q 75 70 80 80 Q 75 90 70 80 Z"/>
+    <path d="M 65 80 Q 75 80 85 80 Q 75 80 65 80 Z" transform="rotate(45 75 80)"/>
+    
+    <path d="M 330 70 Q 335 60 340 70 Q 335 80 330 70 Z" transform="scale(0.7) translate(150, 40)"/>
+    <path d="M 325 70 Q 335 70 345 70 Q 335 70 325 70 Z" transform="scale(0.7) translate(150, 40) rotate(45 335 70)"/>
+  </g>
+
+  <path d="M 100 270 Q 200 310 300 270 C 300 300 250 315 200 315 C 150 315 100 300 100 270 Z" fill="#c3722e"/>
+
+  <path d="M 110 260 L 140 290 L 170 265 L 230 265 L 270 295 L 290 260 Z" fill="#ffb81c"/>
+
+  <rect x="90" y="220" width="220" height="50" rx="25" fill="#4a2411"/>
+  <path d="M 95 245 Q 200 260 305 245 A 20 20 0 0 1 290 265 Q 200 280 110 265 A 20 20 0 0 1 95 245 Z" fill="#301507"/>
+
+  <path d="M 115 205 L 155 245 L 210 215 L 260 235 L 280 205 Z" fill="#ffb81c"/>
+  <path d="M 155 245 L 180 205 L 130 205 Z" fill="#fca103"/>
+
+  <path d="M 85 210 Q 105 230 125 210 Q 145 235 165 210 Q 185 230 205 210 Q 225 235 245 210 Q 265 225 285 210 L 305 205 C 315 195 315 185 305 185 L 90 185 C 75 185 75 200 85 210 Z" fill="#69a824"/>
+  <path d="M 95 195 Q 115 215 135 195 Q 155 220 175 195 Q 195 215 215 195 Q 235 220 255 195 Q 275 210 295 195" fill="none" stroke="#87d134" stroke-width="4" stroke-linecap="round"/>
+
+  <path d="M 90 180 C 90 80 310 80 310 180 Z" fill="url(#bunGrad)"/>
+
+  <g fill="#ffecc9" opacity="0.85">
+    <ellipse cx="200" cy="110" rx="3" ry="5" transform="rotate(15 200 110)"/>
+    <ellipse cx="170" cy="120" rx="3" ry="5" transform="rotate(-20 170 120)"/>
+    <ellipse cx="230" cy="115" rx="3" ry="5" transform="rotate(30 230 115)"/>
+    <ellipse cx="140" cy="140" rx="3" ry="5" transform="rotate(-40 140 140)"/>
+    <ellipse cx="185" cy="145" rx="3" ry="5" transform="rotate(5 185 145)"/>
+    <ellipse cx="215" cy="140" rx="3" ry="5" transform="rotate(-15 215 140)"/>
+    <ellipse cx="260" cy="135" rx="3" ry="5" transform="rotate(45 260 135)"/>
+    <ellipse cx="120" cy="165" rx="3" ry="5" transform="rotate(-60 120 165)"/>
+    <ellipse cx="160" cy="165" rx="3" ry="5" transform="rotate(-20 160 165)"/>
+    <ellipse cx="200" cy="170" rx="3" ry="5" transform="rotate(10 200 170)"/>
+    <ellipse cx="240" cy="165" rx="3" ry="5" transform="rotate(25 240 165)"/>
+    <ellipse cx="280" cy="160" rx="3" ry="5" transform="rotate(60 280 160)"/>
+  </g>
+
+  <text x="200" y="440" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="46" font-weight="600" fill="#ffffff" text-anchor="middle">Foodies</text>
+</svg>

@@ -7,9 +7,7 @@
  * only the presentation is rebuilt.
  */
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import NotificationPanel from './NotificationPanel';
+import { motion } from 'framer-motion';
 
 function IconButton({ onClick, children, size = 44, active }) {
   return (
@@ -64,18 +62,15 @@ function IconButton({ onClick, children, size = 44, active }) {
 export default function CommunityHeader({
   onOpenDrawer,
   onOpenSearch,
-  totalUnread,
-  notifItems,
+  onOpenActivity,
+  activityUnreadCount = 0,
   user,
   onNavigate,
   onPostClick,
 }) {
-  const [showNotifs, setShowNotifs] = useState(false);
-
-  // Subtle dot instead of a numeric badge: blue = unread activity,
-  // red = mentions/replies (not modeled yet, so unread acts as the signal).
-  const hasMentions = false;
-  const dotColor = hasMentions ? '#EF4444' : (totalUnread > 0 ? '#3B82F6' : null);
+  // Bell badge now reflects real personal notifications from the Activity
+  // Center (public.activities), not just "a channel has new posts".
+  const dotColor = activityUnreadCount > 0 ? '#EF4444' : null;
 
   return (
     <>
@@ -113,24 +108,23 @@ export default function CommunityHeader({
             </svg>
           </IconButton>
 
-          <IconButton onClick={() => setShowNotifs(s => !s)} size={44} active={showNotifs}>
+          <IconButton onClick={onOpenActivity} size={44}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
             {dotColor && (
               <span style={{
-                position: 'absolute', top: 8, right: 8,
-                width: 8, height: 8, borderRadius: '50%',
-                background: dotColor,
+                position: 'absolute', top: 6, right: 6,
+                minWidth: 15, height: 15, padding: '0 3px', borderRadius: '50%',
+                background: dotColor, color: '#fff', fontSize: 9, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 border: '1.5px solid #fff',
                 animation: 'badgePulse 2s ease-in-out infinite',
-              }} />
+              }}>
+                {activityUnreadCount > 9 ? '9+' : activityUnreadCount}
+              </span>
             )}
           </IconButton>
-
-          <AnimatePresence>
-            {showNotifs && <NotificationPanel onClose={() => setShowNotifs(false)} items={notifItems} />}
-          </AnimatePresence>
 
           <motion.button
             onClick={() => user ? onPostClick() : onNavigate?.('auth')}
@@ -166,7 +160,6 @@ export default function CommunityHeader({
         </div>
       </div>
 
-      {showNotifs && <div onClick={() => setShowNotifs(false)} style={{ position: 'fixed', inset: 0, zIndex: 240 }} />}
     </>
   );
 }

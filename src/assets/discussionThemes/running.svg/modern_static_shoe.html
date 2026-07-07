@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Animated Shoe</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #0f172a; /* Slate 900 */
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            perspective: 1000px;
+        }
+
+        .scene {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform-style: preserve-3d;
+        }
+
+        .glow-circle {
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(14, 165, 233, 0.4) 0%, rgba(14, 165, 233, 0) 70%);
+            z-index: 0;
+        }
+        
+        .glow-circle-2 {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, rgba(99, 102, 241, 0) 70%);
+            z-index: 0;
+            transform: translate(100px, -50px);
+        }
+
+        .shoe-container {
+            position: relative;
+            z-index: 10;
+            width: 600px;
+            height: 400px;
+            filter: drop-shadow(0 25px 35px rgba(0, 0, 0, 0.5));
+            transform-style: preserve-3d;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .sole-bottom {
+            filter: drop-shadow(0 0 15px #0ea5e9);
+        }
+
+        .air-bubble {
+            fill: #38bdf8;
+            opacity: 0.8;
+        }
+
+        .lace {
+            stroke-dasharray: none;
+        }
+
+        .swoosh-like {
+            opacity: 1;
+        }
+        
+        .accent-dot {
+            opacity: 0.8;
+        }
+
+        .shoe-group {
+            transform-origin: center;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <div class="scene" id="scene">
+        <div class="glow-circle"></div>
+        <div class="glow-circle-2"></div>
+        
+        <div class="shoe-container">
+            <svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" id="shoe-svg">
+                <defs>
+                    <!-- Main Body Gradient -->
+                    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#1e293b" />
+                        <stop offset="50%" stop-color="#334155" />
+                        <stop offset="100%" stop-color="#0f172a" />
+                    </linearGradient>
+
+                    <!-- Sole Gradient -->
+                    <linearGradient id="soleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#e2e8f0" />
+                        <stop offset="50%" stop-color="#f8fafc" />
+                        <stop offset="100%" stop-color="#cbd5e1" />
+                    </linearGradient>
+
+                    <!-- Neon Accents -->
+                    <linearGradient id="neonCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#38bdf8" />
+                        <stop offset="100%" stop-color="#0284c7" />
+                    </linearGradient>
+                    
+                    <linearGradient id="neonPink" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#f472b6" />
+                        <stop offset="100%" stop-color="#be185d" />
+                    </linearGradient>
+
+                    <!-- Texture Pattern -->
+                    <pattern id="meshPattern" width="10" height="10" patternUnits="userSpaceOnUse">
+                        <circle cx="2" cy="2" r="1.5" fill="#475569" opacity="0.3" />
+                        <circle cx="7" cy="7" r="1.5" fill="#475569" opacity="0.3" />
+                    </pattern>
+                    
+                    <!-- Shadows and Filters -->
+                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="8" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                    
+                    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+                        <feDropShadow dx="0" dy="15" stdDeviation="15" flood-color="#000" flood-opacity="0.6"/>
+                    </filter>
+                </defs>
+
+                <g class="shoe-group" id="interactive-group">
+                    
+                    <!-- Back Shadow (simulated depth) -->
+                    <path d="M 150 380 Q 400 420 680 370 Q 750 360 760 380 Q 760 410 400 440 Q 100 410 90 380 Z" fill="rgba(0,0,0,0.4)" filter="blur(15px)" transform="translate(0, 30)"/>
+
+                    <!-- Main Outsole / Bottom -->
+                    <path class="sole-bottom" d="M 110 370 C 110 390, 200 410, 350 410 C 500 410, 650 390, 720 370 C 740 365, 750 375, 740 385 C 700 415, 500 435, 350 435 C 200 435, 120 405, 100 385 C 90 375, 100 365, 110 370 Z" fill="url(#neonCyan)" />
+
+                    <!-- Midsole -->
+                    <path d="M 110 370 C 130 380, 250 395, 400 395 C 550 395, 680 375, 720 350 C 750 330, 760 355, 720 370 C 650 395, 500 415, 350 415 C 200 415, 110 395, 100 385 C 90 375, 100 360, 110 370 Z" fill="url(#soleGrad)" filter="url(#dropShadow)"/>
+                    
+                    <!-- Midsole Details (Air Bubbles/Tech) -->
+                    <g transform="translate(450, 360)">
+                        <rect class="air-bubble" x="0" y="0" width="40" height="20" rx="10" />
+                        <rect class="air-bubble" x="50" y="-3" width="50" height="22" rx="11" />
+                        <rect class="air-bubble" x="110" y="-8" width="60" height="25" rx="12.5" />
+                        <path d="M 0 10 L 170 2" stroke="#e2e8f0" stroke-width="2" fill="none" opacity="0.5"/>
+                    </g>
+                    
+                    <g transform="translate(150, 370)">
+                         <rect class="air-bubble" x="0" y="0" width="30" height="15" rx="7.5" />
+                         <rect class="air-bubble" x="40" y="2" width="40" height="18" rx="9" />
+                    </g>
+
+                    <!-- Heel Counter (Plastic Support) -->
+                    <path d="M 90 280 C 110 280, 150 320, 170 370 C 160 380, 120 380, 110 370 C 90 350, 80 310, 90 280 Z" fill="#0f172a" stroke="#334155" stroke-width="3"/>
+                    <path d="M 95 285 C 110 290, 140 330, 160 365" stroke="url(#neonPink)" stroke-width="4" fill="none" stroke-linecap="round" filter="url(#glow)"/>
+
+                    <!-- Main Upper Base -->
+                    <path id="shoe-upper" d="M 120 280 C 150 180, 250 150, 350 180 C 450 210, 550 250, 650 300 C 700 320, 750 330, 750 350 C 750 370, 700 380, 650 385 C 550 395, 450 400, 350 400 C 250 400, 150 380, 110 370 C 90 360, 90 320, 120 280 Z" fill="url(#bodyGrad)" filter="url(#dropShadow)"/>
+                    
+                    <!-- Mesh Texture Overlay -->
+                    <path d="M 120 280 C 150 180, 250 150, 350 180 C 450 210, 550 250, 650 300 C 700 320, 750 330, 750 350 C 750 370, 700 380, 650 385 C 550 395, 450 400, 350 400 C 250 400, 150 380, 110 370 C 90 360, 90 320, 120 280 Z" fill="url(#meshPattern)" />
+
+                    <!-- Collar / Ankle Opening -->
+                    <path d="M 120 280 C 150 280, 200 240, 250 240 C 280 240, 310 260, 350 260 C 310 280, 250 300, 180 320 C 150 310, 130 300, 120 280 Z" fill="#020617"/>
+                    
+                    <!-- Inner Sock / Tongue -->
+                    <path d="M 230 240 C 250 160, 300 130, 350 140 C 380 150, 420 200, 420 200 C 380 220, 320 250, 280 250 C 260 250, 240 245, 230 240 Z" fill="#1e293b"/>
+                    
+                    <!-- Tongue Tab -->
+                    <rect x="310" y="120" width="30" height="40" rx="5" fill="url(#neonPink)" transform="rotate(15 325 140)" filter="url(#glow)"/>
+                    <text x="315" y="150" fill="#fff" font-family="monospace" font-size="12" font-weight="bold" transform="rotate(15 325 140)">V.X</text>
+
+                    <!-- Front Toe Cap -->
+                    <path d="M 600 310 C 650 320, 730 335, 750 350 C 750 370, 700 380, 650 385 C 600 388, 550 380, 520 375 C 550 350, 580 330, 600 310 Z" fill="#334155" opacity="0.8"/>
+                    
+                    <!-- Side Paneling / Structural Cage -->
+                    <path d="M 300 270 C 350 270, 420 300, 450 380 C 400 385, 300 380, 250 330 C 270 300, 280 280, 300 270 Z" fill="none" stroke="#475569" stroke-width="4" stroke-dasharray="10 5"/>
+                    <path d="M 350 280 C 390 280, 450 310, 480 375 C 440 380, 360 370, 310 320 C 330 300, 340 290, 350 280 Z" fill="none" stroke="#475569" stroke-width="2"/>
+
+                    <!-- The Main Swoosh/Logo -->
+                    <g class="swoosh-like">
+                        <path d="M 220 320 Q 350 250 550 340 Q 400 300 250 350 Q 200 350 220 320 Z" fill="url(#neonCyan)" filter="url(#glow)"/>
+                        <path d="M 230 325 Q 350 260 530 340 Q 400 310 260 350 Q 220 350 230 325 Z" fill="#fff"/>
+                    </g>
+                    
+                    <!-- Speed Lines / Accents -->
+                    <path d="M 450 250 L 520 280 M 470 240 L 540 270 M 490 230 L 560 260" stroke="url(#neonPink)" stroke-width="3" stroke-linecap="round" filter="url(#glow)"/>
+                    
+                    <!-- Decorative Dots -->
+                    <circle class="accent-dot" cx="200" cy="300" r="4" fill="url(#neonPink)" />
+                    <circle class="accent-dot" cx="220" cy="280" r="4" fill="url(#neonPink)" />
+                    <circle class="accent-dot" cx="240" cy="265" r="4" fill="url(#neonPink)" />
+
+                    <!-- Eyestay (Lace Holes Area) -->
+                    <path d="M 270 240 C 300 230, 350 220, 400 230 C 420 250, 400 280, 370 280 C 330 270, 290 260, 270 240 Z" fill="#1e293b"/>
+                    
+                    <!-- Lace Holes -->
+                    <g fill="#94a3b8">
+                        <circle cx="300" cy="245" r="3" />
+                        <circle cx="320" cy="240" r="3" />
+                        <circle cx="345" cy="238" r="3" />
+                        <circle cx="370" cy="242" r="3" />
+                        <circle cx="390" cy="250" r="3" />
+                        
+                        <circle cx="280" cy="265" r="3" />
+                        <circle cx="305" cy="260" r="3" />
+                        <circle cx="330" cy="262" r="3" />
+                        <circle cx="355" cy="268" r="3" />
+                        <circle cx="375" cy="275" r="3" />
+                    </g>
+
+                    <!-- Laces -->
+                    <g stroke="#0ea5e9" stroke-width="4" stroke-linecap="round" fill="none" filter="url(#glow)">
+                        <path class="lace" d="M 280 265 Q 290 255 300 245" />
+                        <path class="lace" d="M 305 260 Q 315 250 320 240" />
+                        <path class="lace" d="M 330 262 Q 340 250 345 238" />
+                        <path class="lace" d="M 355 268 Q 365 255 370 242" />
+                        <path class="lace" d="M 375 275 Q 385 260 390 250" />
+                        
+                        <!-- Zig Zag connections -->
+                        <path class="lace" d="M 300 245 Q 305 255 305 260" stroke-width="2" opacity="0.5" />
+                        <path class="lace" d="M 320 240 Q 325 250 330 262" stroke-width="2" opacity="0.5" />
+                        <path class="lace" d="M 345 238 Q 350 250 355 268" stroke-width="2" opacity="0.5" />
+                    </g>
+                    
+                    <!-- Dynamic Lighting Highlights -->
+                    <path d="M 180 290 C 250 200, 350 180, 450 220" stroke="#fff" stroke-width="2" fill="none" opacity="0.2" filter="blur(2px)"/>
+                    <path d="M 550 280 C 650 320, 700 330, 730 350" stroke="#fff" stroke-width="4" fill="none" opacity="0.3" filter="blur(3px)" stroke-linecap="round"/>
+
+                </g>
+            </svg>
+        </div>
+    </div>
+    
+</body>
+</html>

@@ -84,7 +84,7 @@ export default function PostCard({ post, user, channels, userVote, isSaved, onVo
               : <Avatar profile={profile} size={44} />}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#0D0820', fontFamily: 'var(--font-display)' }}>{isAnon ? 'Anonymous' : (profile?.full_name || profile?.username || 'User')}</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#0D0820', fontFamily: 'var(--font-display)' }}>{isAnon ? 'Anonymous' : (profile?.full_name || profile?.username || 'User')}</span>
                 {badge && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#fff', background: badge.bg, padding: '2px 9px', borderRadius: 999 }}>{badge.label}</span>}
                 {post.is_removed && isAdmin && <span style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', background: '#FEF2F2', padding: '2px 8px', borderRadius: 999 }}>Removed</span>}
               </div>
@@ -115,7 +115,7 @@ export default function PostCard({ post, user, channels, userVote, isSaved, onVo
           </div>
         </div>
 
-        <div style={{ fontSize: 15.5, fontWeight: 700, color: '#0D0820', marginBottom: 8, lineHeight: 1.4, fontFamily: 'var(--font-display)' }}>{post.title}</div>
+        <div style={{ fontSize: 15.5, fontWeight: 600, color: '#0D0820', marginBottom: 8, lineHeight: 1.4, fontFamily: 'var(--font-display)' }}>{post.title}</div>
         {post.body && <div style={{ fontSize: 13.5, color: '#4B5563', lineHeight: 1.7, marginBottom: 10 }}><MentionText text={post.body} /></div>}
 
         {/* Type-specific metadata chips */}

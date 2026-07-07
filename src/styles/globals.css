@@ -1,4 +1,5 @@
-/* Plus Jakarta Sans loaded via index.html <link> for best performance */
+/* Plus Jakarta Sans loaded via index.html <link> for best performance.
+   All weights (400/500/600/700) are loaded there. */
 @import './variables.css';
 @import './typography.css';
 @import './animations.css';
@@ -35,10 +36,10 @@ img { max-width: 100%; display: block; }
 
 /* ── Section header ── */
 .section-header { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:14px; gap:12px; }
-.section-eyebrow { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#6D4AFF; margin-bottom:2px; }
-.section-title { font-family:var(--font-display); font-size:19px; font-weight:700; color:#0D0820; letter-spacing:-0.3px; }
+.section-eyebrow { font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:#6D4AFF; margin-bottom:2px; }
+.section-title { font-family:var(--font-display); font-size:19px; font-weight:700; color:#0D0820; letter-spacing:-0.2px; }
 .section-title .accent { color:#6D4AFF; }
-.see-all-btn { display:inline-flex; align-items:center; gap:4px; color:#6D4AFF; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; flex-shrink:0; padding:0; border:none; background:none; }
+.see-all-btn { display:inline-flex; align-items:center; gap:4px; color:#6D4AFF; font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap; flex-shrink:0; padding:0; border:none; background:none; }
 .see-all-btn:hover { opacity:0.72; }
 
 /* ── Bottom sheet ── */

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#936DDE" />
+      <stop offset="100%" stop-color="#7B55C8" />
+    </linearGradient>
+
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="15" stdDeviation="12" flood-color="#4C2B95" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <rect width="100%" height="100%" fill="url(#bg-grad)" />
+
+  <g filter="url(#shadow)">
+    <path d="M 110 160 
+             C 150 140, 250 140, 290 160 
+             C 355 180, 365 250, 350 310 
+             C 335 365, 290 365, 280 320 
+             C 270 270, 230 260, 200 260 
+             C 170 260, 130 270, 120 320 
+             C 110 365, 65 365, 50 310 
+             C 35 250, 45 180, 110 160 Z" 
+          fill="#3E1C87" />
+    
+    <path d="M 110 160 C 150 140, 250 140, 290 160 C 320 169, 340 190, 348 220 C 330 190, 280 165, 200 165 C 120 165, 70 190, 52 220 C 60 190, 80 169, 110 160 Z" fill="#522CA6" />
+  </g>
+
+  <circle cx="115" cy="215" r="32" fill="#2E1266" />
+  
+  <g transform="translate(115, 215)">
+    <path d="M -15 -25 h 30 v 15 h 15 v 20 h -15 v 15 h -30 v -15 h -15 v -20 h 15 z" fill="#522CA6" />
+    <path d="M -10 -20 h 20 v 15 h 15 v 10 h -15 v 15 h -20 v -15 h -15 v -10 h 15 z" fill="#3E1C87" />
+  </g>
+
+  <circle cx="285" cy="215" r="32" fill="#2E1266" />
+
+  <circle cx="285" cy="190" r="9" fill="#FFB782" />
+  <circle cx="260" cy="215" r="9" fill="#2ED8F6" />
+  <circle cx="310" cy="215" r="9" fill="#F94B98" />
+  <circle cx="285" cy="240" r="9" fill="#2ED8F6" />
+
+  <circle cx="150" cy="290" r="28" fill="#2E1266" />
+  <circle cx="250" cy="290" r="28" fill="#2E1266" />
+
+  <circle cx="150" cy="290" r="22" fill="#442189" />
+  <circle cx="250" cy="290" r="22" fill="#442189" />
+
+  <circle cx="150" cy="290" r="14" fill="#2E1266" />
+  <circle cx="250" cy="290" r="14" fill="#2E1266" />
+
+  <circle cx="200" cy="170" r="5" fill="#2E1266" />
+  <circle cx="185" cy="190" r="4" fill="#2E1266" />
+  <circle cx="215" cy="190" r="4" fill="#2E1266" />
+  <circle cx="200" cy="215" r="8" fill="#2E1266" />
+
+  <text x="200" y="445" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="52" font-weight="600" fill="#FFFFFF" text-anchor="middle" letter-spacing="1.0">Gaming</text>
+</svg>

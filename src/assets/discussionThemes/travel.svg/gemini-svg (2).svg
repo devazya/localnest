@@ -1,0 +1,82 @@
+<svg width="100%" height="100%" viewBox="0 0 400 480" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#80b8fc" />
+      <stop offset="50%" stop-color="#69a3f2" />
+      <stop offset="100%" stop-color="#4985db" />
+    </linearGradient>
+
+    <linearGradient id="planeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="40%" stop-color="#f2f7fc" />
+      <stop offset="85%" stop-color="#c4d7f0" />
+      <stop offset="100%" stop-color="#a4bfe3" />
+    </linearGradient>
+
+    <linearGradient id="wingGradLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#c4d7f0" />
+    </linearGradient>
+
+    <linearGradient id="wingGradRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e1ebf6" />
+      <stop offset="100%" stop-color="#9bb7de" />
+    </linearGradient>
+
+    <linearGradient id="engineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#b0c8e6" />
+    </linearGradient>
+
+    <filter id="planeShadow" x="-20%" y="-20%" width="150%" height="150%">
+      <feDropShadow dx="15" dy="25" stdDeviation="12" flood-color="#1c4885" flood-opacity="0.4" />
+      <feDropShadow dx="5" dy="10" stdDeviation="5" flood-color="#2a62a8" flood-opacity="0.3" />
+    </filter>
+    
+    <filter id="glassBlur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" />
+    </filter>
+  </defs>
+
+  <rect width="100%" height="100%" fill="url(#bgGrad)" />
+
+  <ellipse cx="200" cy="220" rx="140" ry="110" transform="rotate(-15 200 220)" fill="rgba(255, 255, 255, 0.08)" filter="url(#glassBlur)" />
+  <ellipse cx="220" cy="240" rx="150" ry="90" transform="rotate(25 220 240)" fill="rgba(255, 255, 255, 0.05)" filter="url(#glassBlur)" />
+
+  <g transform="translate(200, 200) rotate(45)" filter="url(#planeShadow)">
+    
+    <path d="M -12 -15 L -100 30 C -105 32, -105 38, -100 42 L -15 25 Z" fill="url(#wingGradLeft)" />
+    
+    <path d="M 12 -15 L 100 30 C 105 32, 105 38, 100 42 L 15 25 Z" fill="url(#wingGradRight)" />
+
+    <rect x="-45" y="18" width="10" height="24" rx="5" fill="url(#engineGrad)" />
+    <rect x="-70" y="26" width="8" height="20" rx="4" fill="url(#engineGrad)" />
+
+    <rect x="35" y="18" width="10" height="24" rx="5" fill="url(#engineGrad)" />
+    <rect x="62" y="26" width="8" height="20" rx="4" fill="url(#engineGrad)" />
+
+    <path d="M -5 70 L -38 85 C -42 86, -42 90, -38 92 L -3 82 Z" fill="url(#wingGradLeft)" />
+
+    <path d="M 5 70 L 38 85 C 42 86, 42 90, 38 92 L 3 82 Z" fill="url(#wingGradRight)" />
+
+    <path d="M 0 -100 
+             C 22 -95, 28 -30, 20 60 
+             C 15 95, 8 105, 0 108 
+             C -8 105, -15 95, -20 60 
+             C -28 -30, -22 -95, 0 -100 Z" 
+          fill="url(#planeGrad)" />
+
+    <path d="M -4 70 L 0 45 C 2 42, 5 42, 6 45 L 6 95 L -2 95 Z" fill="#ffffff" />
+    <path d="M 0 45 C 2 42, 5 42, 6 45 L 6 95 L 0 90 Z" fill="#d0e0f2" /> <path d="M -8 -75 C -3 -82, 3 -82, 8 -75 L 5 -70 C 2 -73, -2 -73, -5 -70 Z" fill="#6ba2e6" opacity="0.8" />
+  </g>
+
+  <text x="200" y="420" 
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+        font-weight="600" 
+        font-size="44" 
+        fill="#ffffff" 
+        text-anchor="middle" 
+        letter-spacing="0.5">
+    Travel
+  </text>
+</svg>

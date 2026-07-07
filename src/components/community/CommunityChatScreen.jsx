@@ -33,10 +33,10 @@ export default function CommunityChatScreen({ onBack, posts, initialLoad, user, 
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.2"><path d="m15 18-6-6 6-6"/></svg>
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15.5, fontWeight: 700, color: '#0D0820', fontFamily: 'var(--font-display)' }}>Neighbourhood Chat</div>
+          <div style={{ fontSize: 15.5, fontWeight: 600, color: '#0D0820', fontFamily: 'var(--font-display)' }}>Neighbourhood Chat</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', animation: 'livePulse 2s ease-in-out infinite' }} />
-            <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 600, display: 'inline-flex', gap: 4 }}><AnimatedNumber value={onlineCount} /> online</span>
+            <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 500, display: 'inline-flex', gap: 4 }}><AnimatedNumber value={onlineCount} /> online</span>
           </div>
         </div>
       </div>

@@ -203,6 +203,25 @@ export const VIEW_ANYWAY_KEY_PREFIX = 'viewAnyway:';
 
 export const AVATAR_COLORS = ['#6D4AFF','#D97706','#DB2777','#16A34A','#0284C7','#7C3AED','#DC2626','#EA580C'];
 
+// ─── Discussion Room Atmosphere ─────────────────────────────────────────────
+// Ambient theming per channel/category — background wash + accent only.
+// Layout never changes, opacity stays under 5%, CSS/SVG only (no images).
+export const ROOM_ATMOSPHERE = {
+  general:          { accent: '#6D4AFF', bg: 'radial-gradient(circle at 20% 0%, rgba(109,74,255,0.05), transparent 60%)' },
+  sports:           { accent: '#EA6A0E', bg: 'repeating-linear-gradient(115deg, rgba(234,106,14,0.045) 0 2px, transparent 2px 34px)' },
+  'ride-sharing':   { accent: '#16A34A', bg: 'radial-gradient(circle at 85% 10%, rgba(22,163,74,0.045), transparent 55%)' },
+  events:           { accent: '#7C3AED', bg: 'radial-gradient(ellipse at 50% -10%, rgba(124,58,237,0.05), transparent 60%)' },
+  'buy-sell':       { accent: '#EA580C', bg: 'radial-gradient(circle at 10% 100%, rgba(234,88,12,0.045), transparent 55%)' },
+  jobs:             { accent: '#B45309', bg: 'radial-gradient(circle at 90% 0%, rgba(180,83,9,0.04), transparent 55%)' },
+  help:             { accent: '#7C3AED', bg: 'radial-gradient(circle at 50% 0%, rgba(124,58,237,0.045), transparent 55%)' },
+  'lost-and-found': { accent: '#DC2626', bg: 'radial-gradient(circle at 15% 15%, rgba(220,38,38,0.04), transparent 55%)' },
+  'neighbourhood-updates': { accent: '#D97706', bg: 'radial-gradient(circle at 80% 0%, rgba(217,119,6,0.045), transparent 55%)' },
+};
+
+export function getRoomAtmosphere(slug) {
+  return ROOM_ATMOSPHERE[slug] || ROOM_ATMOSPHERE.general;
+}
+
 // ─── Inline keyframe styles ───────────────────────────────────────────────────
 
 export const KEYFRAMES = `
@@ -210,4 +229,8 @@ export const KEYFRAMES = `
 @keyframes livePulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0.4); } 50% { opacity: 0.85; box-shadow: 0 0 0 5px rgba(34,197,94,0); } }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 .skeleton { background: linear-gradient(90deg, #F0EEFF 25%, #E8E4FF 50%, #F0EEFF 75%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; }
+@keyframes bubbleIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes bubbleOut { 0% { opacity: 0; transform: scale(0.98); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes reactionPop { 0% { transform: scale(0.6); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+@keyframes typingPulse { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-4px); opacity: 1; } }
 `;
