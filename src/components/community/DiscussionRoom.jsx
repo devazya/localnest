@@ -491,6 +491,7 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
         borderRadius: '26px 26px 0 0',
         boxShadow: '0 -10px 24px -8px rgba(20,10,50,0.18)',
       }}>
+        <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <div
           ref={listRef}
           onScroll={handleScroll}
@@ -565,7 +566,7 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
                           onClick={() => { if (!isDeleted) handleBubblePress(msg); }}
                           style={{
                             display: 'inline-block', width: 'fit-content', maxWidth: '100%',
-                            background: `linear-gradient(135deg, ${identity.tint} 0%, rgba(255,255,255,0.97) 65%)`,
+                            background: `linear-gradient(135deg, ${identity.tint} 0%, ${identity.tint} 55%, rgba(255,255,255,0.94) 100%)`,
                             border: `1px solid ${identity.solid}33`,
                             borderLeft: `3px solid ${identity.solid}`,
                             boxShadow: '0 1px 3px rgba(30,30,60,0.04), 0 8px 20px rgba(30,30,60,0.07), inset 0 1px 0 rgba(255,255,255,0.85)',
@@ -726,12 +727,14 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
           <div ref={bottomRef} />
         </div>
 
-        {/* Scroll-to-bottom chevron */}
+        {/* Scroll-to-bottom chevron — anchored to bottom-right of the
+            message-list area (just above the composer), not the whole
+            sheet, so it never overlaps or hides behind the composer. */}
         {!isNearBottom && (
           <button
             onClick={() => scrollToBottom('smooth')}
             style={{
-              position: 'absolute', right: 8, bottom: unseenCount > 0 ? 54 : 12,
+              position: 'absolute', right: 8, bottom: 20,
               width: 36, height: 36, borderRadius: '50%', border: 'none',
               background: atmosphere.accent, color: '#fff', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -750,18 +753,19 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
               exit={{ opacity: 0, y: 8, scale: 0.95 }}
               onClick={() => scrollToBottom('smooth')}
               style={{
-                position: 'absolute', left: '50%', bottom: 12, transform: 'translateX(-50%)',
+                position: 'absolute', right: 8, bottom: 62,
                 background: atmosphere.accent, color: '#fff', border: 'none', borderRadius: 999,
                 padding: '8px 16px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
                 boxShadow: `0 8px 20px -6px ${atmosphere.accent}66`,
                 display: 'flex', alignItems: 'center', gap: 6, zIndex: 5,
-                fontFamily: 'var(--font-sans)',
+                fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap',
               }}
             >
               ↓ {unseenCount} New Message{unseenCount > 1 ? 's' : ''}
             </motion.button>
           )}
         </AnimatePresence>
+        </div>
 
         {/* Composer */}
         <div style={{
