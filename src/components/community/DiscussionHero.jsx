@@ -112,31 +112,36 @@ function Illustration({ theme }) {
   );
 }
 
-// ─── Feature card ──────────────────────────────────────────────────────────
-function FeatureCard({ theme, discussion }) {
+// ─── Feature card (tilted pinned-note style) ───────────────────────────────
+export function FeatureCard({ theme, discussion }) {
   const { cardAccent, featureCard: defaults } = theme;
 
   // Prefer real discussion data; fall back to theme defaults.
   const label    = defaults.label;
   const title    = discussion?.title || defaults.title;
   const subtitle = discussion?.description || defaults.subtitle;
+  const useClapper = defaults.icon === 'clapper';
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 10, rotate: 0 }}
+      animate={{ opacity: 1, y: 0, rotate: 3 }}
       transition={{ duration: 0.45, delay: 0.15, ease: [0.22, 0.61, 0.36, 1] }}
       style={{
-        background: '#fff',
+        background: 'rgba(20,10,40,0.35)',
+        backdropFilter: 'blur(18px)',
+        WebkitBackdropFilter: 'blur(18px)',
         borderRadius: 18,
         padding: '11px 14px',
-        boxShadow: '0 8px 28px rgba(0,0,0,0.16), 0 2px 6px rgba(0,0,0,0.08)',
+        boxShadow: '0 14px 30px rgba(0,0,0,0.28), 0 4px 10px rgba(0,0,0,0.14)',
         display: 'flex',
         alignItems: 'center',
         gap: 10,
         position: 'relative',
-        overflow: 'hidden',
+        overflow: 'visible',
         minWidth: 0,
+        transformOrigin: 'right center',
+        border: '1px solid rgba(255,255,255,0.35)',
       }}
     >
       {/* Left accent bar */}
@@ -148,44 +153,65 @@ function FeatureCard({ theme, discussion }) {
         borderRadius: '18px 0 0 18px',
       }} />
 
+      {/* Pin icon — top-left corner, sitting right against the label */}
+      <div style={{
+        position: 'absolute', top: -8, left: 10,
+        width: 20, height: 20, borderRadius: '50%',
+        background: '#fff',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transform: 'rotate(18deg)',
+        zIndex: 2,
+      }}>
+        <span style={{ fontSize: 11 }}>📌</span>
+      </div>
+
       <div style={{ paddingLeft: 6, flex: 1, minWidth: 0 }}>
         <div style={{
           fontSize: 11,
-          fontWeight: 600,
-          color: cardAccent,
+          fontWeight: 700,
+          color: '#FFE9F7',
           fontFamily: 'var(--font-sans)',
           letterSpacing: 0.3,
           marginBottom: 2,
           textTransform: 'uppercase',
+          textShadow: '0 1px 3px rgba(0,0,0,0.55)',
         }}>
           {label}
         </div>
         <div style={{
           fontSize: 11.5,
-          fontWeight: 500,
-          color: '#6B7280',
+          fontWeight: 600,
+          color: 'rgba(255,255,255,0.92)',
           fontFamily: 'var(--font-sans)',
           marginBottom: 1,
+          textShadow: '0 1px 3px rgba(0,0,0,0.55)',
         }}>
           We&apos;re talking about
         </div>
         <div style={{
           fontSize: 15,
-          fontWeight: 700,
-          color: '#111827',
+          fontWeight: 800,
+          color: '#ffffff',
           fontFamily: 'var(--font-display)',
           lineHeight: 1.25,
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
+          textShadow: '0 1px 5px rgba(0,0,0,0.6)',
         }}>
           {title}
         </div>
       </div>
 
-      {/* Star accent */}
-      <div style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>
-        ⭐
+      {/* Right accent — clapperboard for movie/event themes, star otherwise */}
+      <div style={{
+        fontSize: 22, flexShrink: 0, lineHeight: 1,
+        width: 40, height: 40, borderRadius: 12,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: useClapper ? 'linear-gradient(160deg, #2A2A35, #14141C)' : 'transparent',
+      }}>
+        {useClapper ? '🎬' : '⭐'}
       </div>
     </motion.div>
   );
@@ -201,6 +227,7 @@ export default function DiscussionHero({
   pills         = [],
   onBack,
   onLeave,
+  onPillClick,
 }) {
   const theme = getDiscussionTheme(themeKey);
   const isSports = themeKey === 'sports';
@@ -211,9 +238,33 @@ export default function DiscussionHero({
         background: theme.bgGradient,
         flexShrink: 0,
         position: 'relative',
-        overflow: 'hidden',
+        overflow: 'visible',
+        minHeight: theme.heroSceneSvg ? 210 : undefined,
       }}
     >
+      {/* Background layer wrapper — clips scene image / glow / particles to
+          the hero's own bounds, WITHOUT clipping the feature card below,
+          which is allowed to bleed down over the chat area. */}
+      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+      {/* ── Layer 0: full-width cinematic scene background (movie/events theme) ── */}
+      {theme.heroSceneSvg && (
+        <img
+          src={theme.heroSceneSvg}
+          alt=""
+          aria-hidden="true"
+          draggable="false"
+          loading="eager"
+          decoding="async"
+          fetchpriority="high"
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', objectPosition: 'center 40%',
+            pointerEvents: 'none',
+            transform: 'translateZ(0)',
+          }}
+        />
+      )}
+
       {/* ── Layer 1: ambient glow blob ── */}
       <div
         aria-hidden="true"
@@ -249,6 +300,7 @@ export default function DiscussionHero({
       {theme.particles && (
         <ParticleLayer color={theme.particles.color} count={theme.particles.count} />
       )}
+      </div>
 
       {/* ── Layer 3: content ── */}
       <div style={{ position: 'relative', padding: '14px 14px 0' }}>
@@ -352,6 +404,7 @@ export default function DiscussionHero({
             {pills.map(p => (
               <button
                 key={p.label}
+                onClick={() => onPillClick?.(p.label)}
                 style={{
                   background: 'rgba(255,255,255,0.16)',
                   border: '1px solid rgba(255,255,255,0.28)',
@@ -370,19 +423,27 @@ export default function DiscussionHero({
           </div>
         )}
 
-        {/* ILLUSTRATION — centrepiece SVG */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          marginTop: 18,
-          marginBottom: 0,
-        }}>
-          <Illustration theme={theme} />
-        </div>
+        {/* ILLUSTRATION — centrepiece SVG (skipped when a full cinematic
+            scene is already rendered as the hero background, to avoid
+            drawing the popcorn/clapperboard twice) */}
+        {!theme.heroSceneSvg && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            marginTop: 18,
+            marginBottom: 0,
+          }}>
+            <Illustration theme={theme} />
+          </div>
+        )}
+        {theme.heroSceneSvg && <div style={{ height: 74 }} />}
       </div>
 
-      {/* FEATURE CARD — floats over the bottom edge, overlapping chat */}
-      <div style={{ padding: '0 14px', marginTop: -18, paddingBottom: 18 }}>
+      {/* FEATURE CARD — floats over the bottom edge, bleeding down onto the
+          chat area so scrolled messages disappear behind it (z-index set
+          above the chat list, which DiscussionRoom renders with a lower
+          z-index right below). */}
+      <div style={{ padding: '0 14px', marginTop: -28, position: 'relative', zIndex: 30 }}>
         <FeatureCard theme={theme} discussion={discussion} />
       </div>
     </div>

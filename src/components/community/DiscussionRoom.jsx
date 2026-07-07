@@ -54,6 +54,9 @@ const ACTION_PILLS = {
   default:        [{ label: 'Create Poll', icon: '📊' }],
 };
 
+const POLL_PREFIX = '__POLL__';
+const POLL_OPTION_EMOJIS = ['1\u20e3', '2\u20e3', '3\u20e3', '4\u20e3'];
+
 export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMessage }) {
   const [text, setText]           = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -61,6 +64,12 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
   const [unseenCount, setUnseenCount]   = useState(0);
   const [seenProfiles, setSeenProfiles] = useState({});
   const [showSeenBy, setShowSeenBy]     = useState(false);
+
+  // ── Poll creation (Create Poll pill) ──
+  const [showPollSheet, setShowPollSheet] = useState(false);
+  const [pollQuestion, setPollQuestion]   = useState('');
+  const [pollOptions, setPollOptions]     = useState(['', '']);
+  const [pollSubmitting, setPollSubmitting] = useState(false);
 
   // ── Persisted messages (Supabase-backed) ──
   // Fixes the "messages disappear on refresh" bug: this room's chat now
@@ -90,7 +99,45 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
   const pills      = ACTION_PILLS[discussion.community_channel] || ACTION_PILLS.default;
 
   const readingCount = onlineCount;
-  const typingCount  = Math.min(onlineCount, onlineCount > 4 ? Math.round(onlineCount * 0.08) : (onlineCount > 1 ? 1 : 0));
+  // Real typing indicator (replaces the old fake formula derived from
+  // onlineCount, which showed "typing" constantly and looked scripted).
+  // Driven by an actual broadcast channel: composer sends a lightweight
+  // 'typing' event as the user types, listeners clear it out after a
+  // short idle window.
+  const [typingUsers, setTypingUsers] = useState({}); // userId -> last-seen ms
+  const typingChannelRef = useRef(null);
+  const typingTimeoutsRef = useRef({});
+  const lastTypingSentRef = useRef(0);
+
+  useEffect(() => {
+    const channel = supabase.channel(`typing:${discussion.id}`, { config: { broadcast: { self: false } } });
+    channel.on('broadcast', { event: 'typing' }, ({ payload }) => {
+      if (!payload?.userId || payload.userId === user?.id) return;
+      setTypingUsers(prev => ({ ...prev, [payload.userId]: Date.now() }));
+      clearTimeout(typingTimeoutsRef.current[payload.userId]);
+      typingTimeoutsRef.current[payload.userId] = setTimeout(() => {
+        setTypingUsers(prev => { const n = { ...prev }; delete n[payload.userId]; return n; });
+      }, 2500);
+    });
+    channel.subscribe();
+    typingChannelRef.current = channel;
+    return () => {
+      supabase.removeChannel(channel);
+      Object.values(typingTimeoutsRef.current).forEach(clearTimeout);
+      typingTimeoutsRef.current = {};
+    };
+  }, [discussion.id, user?.id]);
+
+  // Debounced sender — called from the composer on every keystroke, but
+  // only actually broadcasts at most once every 1.5s.
+  const handleTyping = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < 1500) return;
+    lastTypingSentRef.current = now;
+    typingChannelRef.current?.send({ type: 'broadcast', event: 'typing', payload: { userId: user?.id } });
+  }, [user?.id]);
+
+  const typingCount = Object.keys(typingUsers).length;
 
   // ── 1) Initial load: get/create the room's conversation, join it, fetch
   //       every existing message (oldest → newest). Runs whenever the
@@ -292,6 +339,50 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
 
   const cancelEdit = () => { setEditingMsg(null); setText(''); };
 
+  // ── Poll creation ──
+  const openPollSheet = () => { setPollQuestion(''); setPollOptions(['', '']); setShowPollSheet(true); };
+
+  const handlePillClick = (label) => {
+    if (label === 'Create Poll') openPollSheet();
+  };
+
+  const updatePollOption = (i, value) => setPollOptions(prev => prev.map((o, idx) => (idx === i ? value : o)));
+  const addPollOption = () => setPollOptions(prev => (prev.length < 4 ? [...prev, ''] : prev));
+  const removePollOption = (i) => setPollOptions(prev => (prev.length > 2 ? prev.filter((_, idx) => idx !== i) : prev));
+
+  const submitPoll = async () => {
+    const question = pollQuestion.trim();
+    const options  = pollOptions.map(o => o.trim()).filter(Boolean);
+    if (!question || options.length < 2 || !user || !conversationId) return;
+    setPollSubmitting(true);
+    try {
+      const content = POLL_PREFIX + JSON.stringify({ question, options: options.slice(0, 4) });
+      const row = await sendDiscussionMessage(conversationId, user.id, content);
+      setMessages(prev => (prev.some(m => m.id === row.id) ? prev : [...prev, {
+        id: row.id,
+        author_id: row.sender_id,
+        profiles: row.profiles || {
+          id: user.id,
+          full_name: myProfile?.full_name,
+          username: myProfile?.username,
+          avatar_url: myProfile?.avatar_url,
+        },
+        title: row.message,
+        created_at: row.created_at,
+        edited_at: row.edited_at,
+        deleted_at: row.deleted_at,
+        reactions: row.reactions || {},
+      }]));
+      setIsNearBottom(true);
+      setShowPollSheet(false);
+      onMessage?.(discussion.id, null);
+    } catch (err) {
+      console.error('Failed to create poll:', err);
+    } finally {
+      setPollSubmitting(false);
+    }
+  };
+
   const startEdit = (msg) => {
     setActionSheetMsg(null);
     setEditingMsg({ id: msg.id, text: msg.title });
@@ -363,27 +454,43 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
   return (
     <motion.div
       initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-      transition={{ type: 'spring', stiffness: 300, damping: 32 }}
+      transition={{ type: 'tween', duration: 0.22, ease: [0.22, 0.61, 0.36, 1] }}
       style={{
         position: 'fixed', inset: 0, zIndex: 500, background: '#EEEEFF',
         backgroundImage: atmosphere.bg,
         display: 'flex', flexDirection: 'column', height: '100dvh',
+        willChange: 'transform',
+        contain: 'layout paint',
       }}
     >
-      {/* ── Hero header — driven entirely by DiscussionHero + discussionThemes.js ── */}
-      <DiscussionHero
-        discussion={discussion}
-        themeKey={discussion.community_channel}
-        onlineCount={onlineCount}
-        readingCount={readingCount}
-        typingCount={typingCount}
-        pills={pills}
-        onBack={onBack}
-        onLeave={onLeave}
-      />
+      {/* ── Hero header — driven entirely by DiscussionHero + discussionThemes.js ──
+          Rendered in its own stacking layer with a higher z-index than the
+          chat list below it, so the pinned card (which bleeds out of the
+          hero's bottom edge) visually sits ON TOP of scrolled messages. */}
+      <div style={{ position: 'relative', zIndex: 2 }}>
+        <DiscussionHero
+          discussion={discussion}
+          themeKey={discussion.community_channel}
+          onlineCount={onlineCount}
+          readingCount={readingCount}
+          typingCount={typingCount}
+          pills={pills}
+          onBack={onBack}
+          onLeave={onLeave}
+          onPillClick={handlePillClick}
+        />
+      </div>
 
-      {/* ── Message area ── */}
-      <div style={{ flex: 1, minHeight: 0, padding: '14px 14px 0', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      {/* ── Message area — a rounded "sheet" that slides up underneath the
+          pinned card and hero, so its own solid background occludes
+          messages as they scroll past that point (the "disappear behind
+          the pinned card" effect). ── */}
+      <div style={{
+        flex: 1, minHeight: 0, padding: '30px 14px 0', display: 'flex', flexDirection: 'column', position: 'relative',
+        marginTop: -30, zIndex: 1, background: '#EEEEFF', backgroundImage: atmosphere.bg,
+        borderRadius: '26px 26px 0 0',
+        boxShadow: '0 -10px 24px -8px rgba(20,10,50,0.18)',
+      }}>
         <div
           ref={listRef}
           onScroll={handleScroll}
@@ -424,6 +531,22 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
                       ? `${msg.title.slice(0, LONG_MESSAGE_CHAR_LIMIT)}…`
                       : msg.title;
 
+                    // Poll messages are stored as a plain-text message with
+                    // a __POLL__ prefix + JSON payload (question/options) —
+                    // no new table needed. Votes reuse the existing single-
+                    // reaction-per-user system: option N maps to emoji N,
+                    // so handleReact already enforces "one vote per person".
+                    let poll = null;
+                    if (!isDeleted && (msg.title || '').startsWith(POLL_PREFIX)) {
+                      try { poll = JSON.parse(msg.title.slice(POLL_PREFIX.length)); } catch { poll = null; }
+                    }
+                    const pollTotalVotes = poll
+                      ? poll.options.reduce((sum, _, i) => sum + ((msg.reactions?.[POLL_OPTION_EMOJIS[i]] || []).length), 0)
+                      : 0;
+                    const myPollVoteIdx = poll
+                      ? poll.options.findIndex((_, i) => (msg.reactions?.[POLL_OPTION_EMOJIS[i]] || []).includes(user?.id))
+                      : -1;
+
                     return (
                       <div key={msg.id} style={{ position: 'relative', paddingBottom: hasReaction ? 16 : 0, alignSelf: 'flex-start', maxWidth: '84%' }}>
 
@@ -442,8 +565,9 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
                           onClick={() => { if (!isDeleted) handleBubblePress(msg); }}
                           style={{
                             display: 'inline-block', width: 'fit-content', maxWidth: '100%',
-                            background: `linear-gradient(135deg, rgba(255,255,255,0.99) 0%, ${identity.tint}22 45%, rgba(255,255,255,0.97) 100%)`,
-                            border: '1px solid rgba(255,255,255,0.8)',
+                            background: `linear-gradient(135deg, ${identity.tint} 0%, rgba(255,255,255,0.97) 65%)`,
+                            border: `1px solid ${identity.solid}33`,
+                            borderLeft: `3px solid ${identity.solid}`,
                             boxShadow: '0 1px 3px rgba(30,30,60,0.04), 0 8px 20px rgba(30,30,60,0.07), inset 0 1px 0 rgba(255,255,255,0.85)',
                             borderRadius: 24,
                             padding: '10px 18px',
@@ -468,6 +592,50 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
                               lineHeight: 1.45, fontFamily: 'var(--font-sans)',
                             }}>
                               This message was deleted
+                            </div>
+                          ) : poll ? (
+                            <div style={{ minWidth: 200 }}>
+                              <div style={{
+                                fontSize: 14.5, fontWeight: 700, color: '#1A1A1A',
+                                marginBottom: 8, fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', gap: 6,
+                              }}>
+                                <span>📊</span>{poll.question}
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {poll.options.map((opt, i) => {
+                                  const emoji = POLL_OPTION_EMOJIS[i];
+                                  const voteCount = (msg.reactions?.[emoji] || []).length;
+                                  const pct = pollTotalVotes > 0 ? Math.round((voteCount / pollTotalVotes) * 100) : 0;
+                                  const isMine = myPollVoteIdx === i;
+                                  return (
+                                    <button
+                                      key={i}
+                                      onClick={(e) => { e.stopPropagation(); handleReact(msg, emoji); }}
+                                      style={{
+                                        position: 'relative', textAlign: 'left', border: `1.5px solid ${isMine ? identity.solid : 'rgba(0,0,0,0.08)'}`,
+                                        borderRadius: 12, padding: '8px 10px', background: '#fff', cursor: 'pointer',
+                                        overflow: 'hidden', fontFamily: 'var(--font-sans)',
+                                      }}
+                                    >
+                                      <div style={{
+                                        position: 'absolute', inset: 0, width: `${pct}%`,
+                                        background: `${identity.solid}22`, transition: 'width 0.3s ease',
+                                      }} />
+                                      <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                                        <span style={{ fontSize: 13.5, fontWeight: isMine ? 700 : 500, color: '#1A1A1A' }}>
+                                          {isMine ? '✓ ' : ''}{opt}
+                                        </span>
+                                        <span style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', flexShrink: 0 }}>
+                                          {voteCount > 0 ? `${pct}%` : ''}
+                                        </span>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6, fontFamily: 'var(--font-sans)' }}>
+                                {pollTotalVotes} vote{pollTotalVotes !== 1 ? 's' : ''}
+                              </div>
                             </div>
                           ) : (
                             <div style={{
@@ -614,7 +782,7 @@ export default function DiscussionRoom({ discussion, user, onBack, onLeave, onMe
             </div>
           )}
           <div style={{ borderRadius: 20, boxShadow: '0 -4px 18px -6px rgba(45,15,120,0.14), 0 10px 24px -8px rgba(45,15,120,0.22)' }}>
-            <CommunityComposer user={user} text={text} setText={setText} onSubmit={submit} submitting={submitting} accent={atmosphere.accent} />
+            <CommunityComposer user={user} text={text} setText={setText} onSubmit={submit} submitting={submitting} accent={atmosphere.accent} onTyping={handleTyping} />
           </div>
         </div>
       </div>

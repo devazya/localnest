@@ -14,6 +14,7 @@ import gamingSvg from '../assets/discussionThemes/gaming.svg/gemini-svg (4).svg'
 import musicSvg  from '../assets/discussionThemes/music.svg/gemini-svg.svg';
 import studySvg  from '../assets/discussionThemes/study.svg/gemini-svg (1).svg';
 import travelSvg from '../assets/discussionThemes/travel.svg/gemini-svg (2).svg';
+import movieSceneSvg from '../assets/discussionThemes/movie.svg/movie.svg';
 
 // ─── Inline SVGs for themes that don't have an asset file yet ────────────────
 // Replace the `illustration` string with an import once you have the SVG file.
@@ -366,17 +367,21 @@ export const DISCUSSION_THEMES = {
     id: 'events',
     displayName: 'Events Room',
     illustration: null,
-    illustrationInlineSvg: MOVIE_SVG, // reuse movie until events SVG is ready
-    bgGradient: 'linear-gradient(160deg, #7C2880 0%, #5C1A60 55%, #3D0D42 100%)',
+    illustrationInlineSvg: MOVIE_SVG,
+    // Full-width cinematic scene (popcorn + clapperboard + spotlights) shown
+    // behind the hero header, replacing the flat gradient background.
+    heroSceneSvg: movieSceneSvg,
+    bgGradient: 'linear-gradient(160deg, #4B207B 0%, #230E4E 55%, #0b0213 100%)',
     glowColor: 'rgba(219, 39, 119, 0.32)',
     accentColor: '#DB2777',
-    cardAccent: '#F472B6',
-    particles: { color: '#FBCFE8', count: 6 },
+    cardAccent: '#A575F1',
+    particles: null,
     featureCard: {
       label: 'Upcoming Event',
       title: 'Something exciting',
       subtitle: 'Stay tuned',
-      showPoster: false,
+      showPoster: true,
+      icon: 'clapper',
     },
   },
 

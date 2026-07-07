@@ -16,7 +16,7 @@ import { useRef, useState } from 'react';
 import MentionAutocomplete from './MentionAutocomplete';
 import { getActiveMentionQuery, insertMention } from '../../services/social';
 
-export default function CommunityComposer({ user, text, setText, onSubmit, submitting, accent = '#6D4AFF' }) {
+export default function CommunityComposer({ user, text, setText, onSubmit, submitting, accent = '#6D4AFF', onTyping }) {
   const inputRef = useRef(null);
   const [mentionQuery, setMentionQuery] = useState(null);
   const [focused, setFocused] = useState(false);
@@ -28,6 +28,7 @@ export default function CommunityComposer({ user, text, setText, onSubmit, submi
   const handleChange = (e) => {
     const value = e.target.value;
     setText(value);
+    onTyping?.();
     const cursor = e.target.selectionStart ?? value.length;
     setMentionQuery(getActiveMentionQuery(value, cursor));
   };
