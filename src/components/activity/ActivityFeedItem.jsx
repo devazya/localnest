@@ -3,15 +3,41 @@
  * One row in the Activity feed. Slides in from the right on mount/insert
  * (per the spec's "list items slide in from right" animation note).
  */
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Avatar from '../community/Avatar';
 import Glyph from './Glyph';
 import { COLORS, SHADOW_SOFT } from './constants';
 import { timeAgo, getTypeMeta } from './utils';
+import { followUser, fetchIsFollowing } from '../../services/followers';
 
-export default function ActivityFeedItem({ activity, index = 0 }) {
+export default function ActivityFeedItem({ activity, index = 0, viewerId }) {
   const meta = getTypeMeta(activity.type);
   const showAvatar = meta.glyph === 'avatar' && activity.actor?.avatar_url;
+  const [following, setFollowing] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (activity.type !== 'follow' || !viewerId || !activity.actor_id) return;
+    let cancelled = false;
+    fetchIsFollowing(viewerId, activity.actor_id).then((isF) => { if (!cancelled) setFollowing(isF); });
+    return () => { cancelled = true; };
+  }, [viewerId, activity.type, activity.actor_id]);
+
+  const handleFollowBack = async (e) => {
+    e.stopPropagation();
+    if (!viewerId || !activity.actor_id || busy || following) return;
+    setBusy(true);
+    setFollowing(true); // optimistic
+    try {
+      await followUser(viewerId, activity.actor_id);
+    } catch (err) {
+      console.error('[ActivityFeedItem] follow back failed:', err);
+      setFollowing(false);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <motion.div
@@ -42,9 +68,20 @@ export default function ActivityFeedItem({ activity, index = 0 }) {
 
       {activity.type === 'follow' ? (
         <button
-          style={{ fontSize: 12, fontWeight: 700, color: COLORS.accentIndigo, background: COLORS.softLavender, border: 'none', padding: '7px 14px', borderRadius: 999, cursor: 'pointer', flexShrink: 0 }}
+          onClick={handleFollowBack}
+          disabled={busy || following}
+          style={{
+            fontSize: 12, fontWeight: 700,
+            color: following ? '#374151' : COLORS.accentIndigo,
+            background: following ? '#fff' : COLORS.softLavender,
+            border: following ? '1.5px solid #E5E7EB' : 'none',
+            padding: '7px 14px', borderRadius: 999,
+            cursor: (busy || following) ? 'default' : 'pointer',
+            opacity: busy ? 0.7 : 1,
+            flexShrink: 0,
+          }}
         >
-          Follow Back
+          {following ? 'Following' : 'Follow Back'}
         </button>
       ) : !activity.is_read ? (
         <span

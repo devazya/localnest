@@ -52,7 +52,6 @@ export default function ChannelNavigation({ channels, activeChannelId, getUnread
                   ? `0 1px 0 ${color}88, inset 0 1px 3px rgba(0,0,0,0.10)`
                   : `0 1px 0 ${floorColor}, inset 0 1px 3px rgba(0,0,0,0.06)`,
               }}
-              layout
               transition={{ type: 'spring', stiffness: 440, damping: 30 }}
               style={{
                 scrollSnapAlign: 'start',

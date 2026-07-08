@@ -73,6 +73,23 @@ export default function Community({ onNavigate, autoOpen }) {
   const [creatingDiscussion, setCreatingDiscussion] = useState(false);
   const [activeDiscussionId, setActiveDiscussionId] = useState(null);
 
+  // ─ Collapsible header title (Segment: scroll-aware header) ─
+  // Title/subtitle block fades up and vanishes once the user scrolls down
+  // into the content, while the channel-pill row underneath stays fixed in
+  // place the whole time. Scrolling back up toward the top brings the
+  // title back immediately. Direction-based (not just "past N px") so it
+  // reacts the instant the user reverses, not only once they reach the top.
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const lastScrollYRef = useRef(0);
+  const handleContentScroll = useCallback((e) => {
+    const scrollTop = e.target.scrollTop;
+    const last = lastScrollYRef.current;
+    if (scrollTop <= 6) setHeaderCollapsed(false);
+    else if (scrollTop > last + 4) setHeaderCollapsed(true);
+    else if (scrollTop < last - 4) setHeaderCollapsed(false);
+    lastScrollYRef.current = scrollTop;
+  }, []);
+
   // Discussion Room messages — lifted up here (instead of living inside
   // DiscussionRoom's own local state) so they SURVIVE leaving and
   // re-entering a room. DiscussionRoom unmounts on back/leave; keeping the
@@ -168,7 +185,7 @@ export default function Community({ onNavigate, autoOpen }) {
   useEffect(() => {
     let cancelled = false;
     setDiscussionsLoading(true);
-    fetchDiscoveryDiscussions({ limit: 100 })
+    fetchDiscoveryDiscussions({ limit: 40 })
       .then((rows) => { if (!cancelled) setAllDiscussions(rows); })
       .catch((err) => console.error('Failed to load discussions:', err))
       .finally(() => { if (!cancelled) setDiscussionsLoading(false); });
@@ -485,20 +502,36 @@ export default function Community({ onNavigate, autoOpen }) {
   // viewing the preview card observes the live count without joining it.
   const generalOnlineCount = usePresenceCount('general', user?.id, showChatScreen);
 
-  // Every Discussion card needs a live count even before it's been opened,
-  // so we watch all of them at once (read-only — joining happens only once
-  // a room is actually opened, inside DiscussionRoom itself).
-  const discussionRoomKeys = useMemo(() => allDiscussions.map(d => `discussion:${d.id}`), [allDiscussions]);
-  const discussionCounts = usePresenceCounts(discussionRoomKeys);
-  const getMemberCount = useCallback((id) => discussionCounts[`discussion:${id}`] ?? 0, [discussionCounts]);
-
   // Single Community channel's discussion list (Sports, Ride Sharing,
   // Events, Marketplace, Jobs, Help, Lost & Found — General uses the
-  // discovery groups below instead).
+  // discovery groups below instead). Computed here (ahead of presence)
+  // since it doesn't depend on live counts, only on activeSlug.
   const channelDiscussions = useMemo(
     () => allDiscussions.filter(d => d.community_channel === activeSlug),
     [allDiscussions, activeSlug]
   );
+
+  // Every visible Discussion card needs a live count — but NOT every
+  // discussion that merely exists. Opening one Presence (websocket) channel
+  // per discussion the instant they load — up to 100 of them at once — was
+  // the main thing making Community feel slow to open. Instead, only watch
+  // presence for what's actually going to be rendered: the active channel's
+  // own list, plus the most recently-active discussions app-wide (a superset
+  // of what General's Trending/Recently Active/Popular rows can show, since
+  // those are every capped at 8 most-recent/most-active items).
+  const visibleDiscussionIds = useMemo(() => {
+    const ids = new Set(channelDiscussions.map(d => d.id));
+    [...allDiscussions]
+      .sort((a, b) => new Date(b.last_activity_at) - new Date(a.last_activity_at))
+      .slice(0, 24)
+      .forEach(d => ids.add(d.id));
+    return Array.from(ids);
+  }, [channelDiscussions, allDiscussions]);
+
+  const discussionRoomKeys = useMemo(() => visibleDiscussionIds.map(id => `discussion:${id}`), [visibleDiscussionIds]);
+  const discussionCounts = usePresenceCounts(discussionRoomKeys);
+  const getMemberCount = useCallback((id) => discussionCounts[`discussion:${id}`] ?? 0, [discussionCounts]);
+
   const sortedChannelDiscussions = useMemo(
     () => sortDiscussions(channelDiscussions, discussionSort, getMemberCount),
     [channelDiscussions, discussionSort, getMemberCount]
@@ -513,7 +546,6 @@ export default function Community({ onNavigate, autoOpen }) {
   );
 
   const getUnread = (slug) => unreadCounts[slug] || 0;
-  const totalUnread = useMemo(() => Object.entries(unreadCounts).filter(([k]) => isNaN(Number(k))).reduce((a, [, v]) => a + v, 0), [unreadCounts]);
 
   // ─ What's Happening Nearby — navigation always follows the currently
   // displayed notification's own destination data, never a fixed handler.
@@ -526,10 +558,6 @@ export default function Community({ onNavigate, autoOpen }) {
     // page / ride / pg / marketplace / event / job → app-level navigation
     onNavigate?.(item.destination);
   };
-
-  const notifItems = CHANNELS
-    .filter(ch => activityChannels.includes(ch.slug) && getUnread(ch.slug) > 0)
-    .map(ch => ({ icon: ch.icon, channel: ch.name, text: 'has new activity', count: getUnread(ch.slug) }));
 
   return (
     <CommunityLayout>
@@ -560,6 +588,7 @@ export default function Community({ onNavigate, autoOpen }) {
         user={user}
         onNavigate={onNavigate}
         onPostClick={() => setShowModal(true)}
+        collapsed={headerCollapsed}
       />
 
       <AnimatePresence>
@@ -604,9 +633,10 @@ export default function Community({ onNavigate, autoOpen }) {
           onJoinDiscussion={(id) => setActiveDiscussionId(id)}
           onCreateDiscussion={() => setShowCreateDiscussion(true)}
           viewerId={user?.id}
+          onScroll={handleContentScroll}
         />
       ) : isDiscussionChannel ? (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }} onScroll={handleContentScroll}>
           <DiscussionSection
             mode="channel"
             channelSlug={activeSlug}

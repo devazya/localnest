@@ -19,16 +19,12 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CHANNEL_EMOJI } from './constants';
 
-// ─── Static fallback pills ────────────────────────────────────────────────────
-const STATIC_ITEMS = [
-  { id: 'st-pg',    emoji: '🏡', label: 'PG Listings',      count: null, dest: 'pgs',       type: 'page' },
-  { id: 'st-ride',  emoji: '🚗', label: 'Ride Sharing',     count: null, dest: 'rideshare', type: 'page' },
-  { id: 'st-sell',  emoji: '🛍️', label: 'Buy & Sell',       count: null, dest: 'buysell',   type: 'page' },
-  { id: 'st-jobs',  emoji: '💼', label: 'Jobs',             count: null, dest: 'community', type: 'page' },
-];
-
 // ─── Build pill list from live data ──────────────────────────────────────────
-function buildItems({ discussions, onlineCount, rideCount, pgCount, eventCount }) {
+// Only real, currently-happening activity gets a pill: the Neighbourhood
+// Chat (when someone's actually online in it) and individual discussions
+// that currently have people chatting in them (memberCount > 0). No static
+// shortcuts, no "discussing" label on rooms nobody is actually in.
+function buildItems({ discussions, onlineCount, getMemberCount }) {
   const items = [];
 
   if (onlineCount > 0) {
@@ -38,7 +34,7 @@ function buildItems({ discussions, onlineCount, rideCount, pgCount, eventCount }
     });
   }
 
-  const activeDiscs = (discussions || []).slice(0, 5);
+  const activeDiscs = (discussions || []).filter(d => (getMemberCount?.(d.id) || 0) > 0);
   for (const d of activeDiscs) {
     const emoji = CHANNEL_EMOJI[d.community_channel] || '🗨️';
     const short = d.title.length > 22 ? d.title.slice(0, 22) + '…' : d.title;
@@ -48,33 +44,7 @@ function buildItems({ discussions, onlineCount, rideCount, pgCount, eventCount }
     });
   }
 
-  if (rideCount > 0) {
-    items.push({
-      id: 'live-rides', emoji: '🚗', label: 'Ride Sharing',
-      count: `${rideCount} active`, dest: 'rideshare', type: 'page',
-    });
-  }
-  if (pgCount > 0) {
-    items.push({
-      id: 'live-pg', emoji: '🏡', label: 'PG Listings',
-      count: `${pgCount} new today`, dest: 'pgs', type: 'page',
-    });
-  }
-  if (eventCount > 0) {
-    items.push({
-      id: 'live-events', emoji: '🎉', label: 'Events',
-      count: `${eventCount} upcoming`, dest: 'events', type: 'page',
-    });
-  }
-
-  // Merge with statics — deduplicate by id
-  const merged = [...items, ...STATIC_ITEMS];
-  const seen = new Set();
-  return merged.filter(item => {
-    if (seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  });
+  return items;
 }
 
 // ─── Navigation helper ────────────────────────────────────────────────────────
@@ -202,12 +172,20 @@ function PillSlide({ items, onNavigate, onJoinChat }) {
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
+// GPU-composited auto-scroll: instead of animating the native `scrollLeft`
+// (which forces a layout recalculation on every frame — the reason this used
+// to feel laggy no matter the speed), the track is translated via CSS
+// `transform: translateX()`, which the browser can composite purely on the
+// GPU. That's what gets this to a genuinely smooth 60fps.
+//
+// Dragging is reimplemented on top of the same transform (pointer events +
+// a ref-tracked offset) since the track is no longer a native scroll
+// container. Interacting pauses the auto-driver immediately; it resumes 2s
+// after release, continuing from wherever the user left it.
 export default function LiveNowTicker({
   discussions = [],
   onlineCount = 0,
-  rideCount = 0,
-  pgCount = 0,
-  eventCount = 0,
+  getMemberCount,
   onNavigate,
   onJoinChat,
 }) {
@@ -216,66 +194,150 @@ export default function LiveNowTicker({
     : false;
 
   const items = useMemo(
-    () => buildItems({ discussions, onlineCount, rideCount, pgCount, eventCount }),
+    () => buildItems({ discussions, onlineCount, getMemberCount }),
     // eslint-disable-next-line
-    [discussions.length, onlineCount, rideCount, pgCount, eventCount]
+    [discussions, onlineCount, getMemberCount]
   );
 
-  const [paused, setPaused] = useState(false);
+  const viewportRef = useRef(null);
+  const trackRef = useRef(null);
+  const rafRef = useRef(null);
   const resumeTimer = useRef(null);
+  const [autoOn, setAutoOn] = useState(true);
 
-  const pause = useCallback(() => {
-    setPaused(true);
-    clearTimeout(resumeTimer.current);
-    resumeTimer.current = setTimeout(() => setPaused(false), 2000);
+  // Current scroll offset in px, kept in a ref (not React state) so every
+  // frame's update is a direct DOM write, not a re-render.
+  const posRef = useRef(0);
+  const draggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartPosRef = useRef(0);
+
+  // Pixels per second — frame-rate independent (uses real elapsed time,
+  // not just a fixed increment per animation frame) so it scrolls at the
+  // same smooth pace on every device regardless of refresh rate.
+  const SPEED_PER_SECOND = 45;
+
+  const applyTransform = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    track.style.transform = `translate3d(${-posRef.current}px, 0, 0)`;
   }, []);
 
+  const wrapPosition = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const singleWidth = track.scrollWidth / 2; // content is doubled
+    if (singleWidth <= 0) return;
+    if (posRef.current >= singleWidth) posRef.current -= singleWidth;
+    else if (posRef.current < 0) posRef.current += singleWidth;
+  }, []);
+
+  // ─ rAF-driven auto-scroll (transform-based, GPU-composited) ─
+  useEffect(() => {
+    if (prefersReduced) return; // handled by PillSlide fallback instead
+    let lastTime = null;
+    const step = (time) => {
+      if (lastTime == null) lastTime = time;
+      const deltaSeconds = Math.min((time - lastTime) / 1000, 0.1); // clamp huge gaps (tab switches)
+      lastTime = time;
+      if (autoOn && !draggingRef.current) {
+        posRef.current += SPEED_PER_SECOND * deltaSeconds;
+        wrapPosition();
+        applyTransform();
+      }
+      rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [autoOn, prefersReduced, applyTransform, wrapPosition]);
+
+  // ─ Pause on interaction, resume 2s after release ─
+  const pauseAuto = useCallback(() => {
+    setAutoOn(false);
+    clearTimeout(resumeTimer.current);
+  }, []);
+
+  const scheduleResume = useCallback(() => {
+    clearTimeout(resumeTimer.current);
+    resumeTimer.current = setTimeout(() => setAutoOn(true), 2000);
+  }, []);
+
+  // ─ Manual drag, reimplemented on the transform offset ─
+  const handlePointerDown = useCallback((e) => {
+    draggingRef.current = true;
+    dragStartXRef.current = e.clientX;
+    dragStartPosRef.current = posRef.current;
+    pauseAuto();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  }, [pauseAuto]);
+
+  const handlePointerMove = useCallback((e) => {
+    if (!draggingRef.current) return;
+    const delta = dragStartXRef.current - e.clientX; // drag left → scroll forward
+    posRef.current = dragStartPosRef.current + delta;
+    wrapPosition();
+    applyTransform();
+  }, [applyTransform, wrapPosition]);
+
+  const handlePointerUp = useCallback(() => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    scheduleResume();
+  }, [scheduleResume]);
+
+  const handleWheel = useCallback((e) => {
+    posRef.current += e.deltaX || e.deltaY;
+    wrapPosition();
+    applyTransform();
+    pauseAuto();
+    scheduleResume();
+  }, [applyTransform, wrapPosition, pauseAuto, scheduleResume]);
+
   useEffect(() => () => clearTimeout(resumeTimer.current), []);
+
+  // No real activity right now — vanish entirely so the layout below
+  // (Neighbourhood Chat card) shifts straight up with no empty gap.
+  if (items.length === 0) return null;
 
   if (prefersReduced) {
     return <PillSlide items={items} onNavigate={onNavigate} onJoinChat={onJoinChat} />;
   }
 
   return (
-    <div
-      style={{ padding: '10px 0 10px 14px', flexShrink: 0, overflow: 'hidden' }}
-      onMouseEnter={pause}
-      onMouseLeave={() => { clearTimeout(resumeTimer.current); setPaused(false); }}
-      onTouchStart={pause}
-    >
+    <div style={{ padding: '10px 0 10px 14px', flexShrink: 0 }}>
       <style>{`
-        @keyframes pillScroll {
-          0%   { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
+        .pill-viewport {
+          overflow: hidden;
+          touch-action: pan-y;
+          cursor: grab;
         }
+        .pill-viewport:active { cursor: grabbing; }
         .pill-track {
-          animation: pillScroll 32s linear infinite;
           will-change: transform;
-        }
-        .pill-track.paused {
-          animation-play-state: paused;
         }
       `}</style>
 
-      {/* Scrolling pill row */}
       <div
-        className={`pill-track${paused ? ' paused' : ''}`}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          width: 'max-content',
-        }}
+        ref={viewportRef}
+        className="pill-viewport"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onPointerLeave={() => { if (draggingRef.current) handlePointerUp(); }}
+        onWheel={handleWheel}
       >
-        {/* Doubled for seamless loop */}
-        {[...items, ...items].map((item, i) => (
-          <LivePill
-            key={`${item.id}-${i}`}
-            item={item}
-            onNavigate={onNavigate}
-            onJoinChat={onJoinChat}
-          />
-        ))}
+        <div ref={trackRef} className="pill-track" style={{ display: 'flex', alignItems: 'center', gap: 8, width: 'max-content' }}>
+          {/* Doubled for seamless loop */}
+          {[...items, ...items].map((item, i) => (
+            <LivePill
+              key={`${item.id}-${i}`}
+              item={item}
+              onNavigate={onNavigate}
+              onJoinChat={onJoinChat}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

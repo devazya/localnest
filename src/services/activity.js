@@ -101,23 +101,57 @@ export async function updateNotificationPreference(userId, currentPreferences, k
 }
 
 /**
- * Realtime: new + updated activity rows for this user. One dedicated
- * channel per session, matching the pattern in services/discussions.js.
+ * Realtime: new + updated activity rows for this user.
+ *
+ * Multiple components subscribe to the same user's feed at once (the
+ * always-mounted bell badge in Community.jsx AND the full Activity Center
+ * once it's opened). Realtime channel names must be unique per open
+ * channel, so instead of opening a new `activities:${userId}` channel per
+ * caller (which collides the moment a second one tries to `.subscribe()`),
+ * this keeps one shared, ref-counted channel per user and fans its events
+ * out to every listener — same registry pattern as services/presence.js.
  */
-export function subscribeToActivities(userId, { onInsert, onUpdate } = {}) {
-  if (!userId) return () => {};
+const activityChannelRegistry = new Map(); // userId -> { channel, listeners, refCount }
+
+function getOrCreateActivityChannel(userId) {
+  let entry = activityChannelRegistry.get(userId);
+  if (entry) return entry;
+
+  const listeners = new Set();
   const channel = supabase
-    .channel('custom-all-channel')
+    .channel(`activities:${userId}`)
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'activities', filter: `user_id=eq.${userId}` },
-      (payload) => onInsert?.(payload.new)
+      (payload) => listeners.forEach((l) => l.onInsert?.(payload.new))
     )
     .on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'activities', filter: `user_id=eq.${userId}` },
-      (payload) => onUpdate?.(payload.new)
+      (payload) => listeners.forEach((l) => l.onUpdate?.(payload.new))
     )
     .subscribe();
-  return () => supabase.removeChannel(channel);
+
+  entry = { channel, listeners, refCount: 0 };
+  activityChannelRegistry.set(userId, entry);
+  return entry;
+}
+
+export function subscribeToActivities(userId, { onInsert, onUpdate } = {}) {
+  if (!userId) return () => {};
+  const entry = getOrCreateActivityChannel(userId);
+  const listener = { onInsert, onUpdate };
+  entry.listeners.add(listener);
+  entry.refCount += 1;
+
+  return () => {
+    const current = activityChannelRegistry.get(userId);
+    if (!current) return;
+    current.listeners.delete(listener);
+    current.refCount -= 1;
+    if (current.refCount <= 0) {
+      activityChannelRegistry.delete(userId);
+      supabase.removeChannel(current.channel);
+    }
+  };
 }

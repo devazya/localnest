@@ -8,7 +8,7 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useActivityCenter } from '../../hooks/useActivityCenter';
-import { BellOutlineIcon, MenuHamburgerIcon } from './icons';
+import { MenuHamburgerIcon } from './icons';
 import CommunityPulseCard from './CommunityPulseCard';
 import ActivityFeedItem from './ActivityFeedItem';
 import SettingsMenu from './SettingsMenu';
@@ -70,14 +70,6 @@ export default function ActivityCenter({ userId, onClose }) {
               <button onClick={() => setSearchOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={COLORS.textPrimary} strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
               </button>
-              <div style={{ position: 'relative' }}>
-                <BellOutlineIcon size={20} color={COLORS.textPrimary} />
-                {unreadCount > 0 && (
-                  <span style={{ position: 'absolute', top: -6, right: -7, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999, background: COLORS.error, color: '#fff', fontSize: 9.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )}
-              </div>
               <button onClick={() => setScreen('settings')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                 <MenuHamburgerIcon size={20} color={COLORS.textPrimary} />
               </button>
@@ -149,7 +141,7 @@ export default function ActivityCenter({ userId, onClose }) {
                 )}
               </div>
               <AnimatePresence initial={false}>
-                {filtered.map((a, i) => <ActivityFeedItem key={a.id} activity={a} index={i} />)}
+                {filtered.map((a, i) => <ActivityFeedItem key={a.id} activity={a} index={i} viewerId={userId} />)}
               </AnimatePresence>
             </>
           )}

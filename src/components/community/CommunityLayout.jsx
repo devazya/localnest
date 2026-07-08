@@ -9,7 +9,7 @@ import { KEYFRAMES } from './constants';
 
 export default function CommunityLayout({ children }) {
   return (
-    <div className="ln-community-root" style={{ height: '100dvh', background: '#EEEEFF', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="ln-community-root" style={{ height: '100dvh', background: '#FFFFFF', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <style>{KEYFRAMES}</style>
       <style>{`
         /* The global mobile rule (main > div { padding-bottom: var(--bottom-nav-h) ... })

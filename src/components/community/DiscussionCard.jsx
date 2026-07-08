@@ -32,17 +32,31 @@ export default function DiscussionCard({ discussion, channelMeta, memberCount = 
       whileHover={{ y: -2 }}
       transition={{ type: 'spring', stiffness: 340, damping: 30 }}
       style={{
-        background: '#fff', borderRadius: 24, padding: '16px 18px', cursor: 'pointer',
-        border: '1.5px solid rgba(109,74,255,0.08)',
-        boxShadow: '0 4px 20px rgba(109,74,255,0.07)',
-        display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12,
+        background: 'linear-gradient(160deg, #FFFFFF 0%, #FAF9FF 100%)',
+        borderRadius: 24, padding: '18px 20px', cursor: 'pointer', minHeight: 104,
+        border: '1.5px solid rgba(109,74,255,0.14)',
+        boxShadow: [
+          '0 5px 0 rgba(109,74,255,0.14)',
+          '0 10px 28px rgba(109,74,255,0.10)',
+          'inset 0 1px 0 rgba(255,255,255,0.90)',
+        ].join(', '),
+        display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 18,
+        position: 'relative', overflow: 'hidden',
       }}
     >
+      {/* Subtle top shimmer stripe — matches Neighbourhood Chat card */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+        background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent)',
+        pointerEvents: 'none',
+      }} />
+
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div style={{
-          width: 46, height: 46, borderRadius: 14, flexShrink: 0,
-          background: channelMeta?.bg || 'linear-gradient(135deg, #F4F2FF, #EDE9FF)',
+          width: 48, height: 48, borderRadius: 15, flexShrink: 0,
+          background: channelMeta?.bg || `linear-gradient(135deg, ${color}, ${color}CC)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 4px 0 ${color}55, 0 6px 14px ${color}40`,
         }}>
           {channelMeta?.icon
             ? <img src={channelMeta.icon} alt="" style={{ width: 24, height: 24, objectFit: 'contain' }} />

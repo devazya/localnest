@@ -12,7 +12,7 @@ export const COLORS = {
   surface: '#FFFFFF',
   background: '#F8F7FF',
   textPrimary: '#0D0820',
-  textSecondary: '#9CA3AF',
+  textSecondary: '#6B7280',
   border: '#F4F3FF',
   success: '#16A34A',
   warning: '#D97706',

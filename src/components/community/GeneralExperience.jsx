@@ -21,9 +21,6 @@ export default function GeneralExperience({
   onJoinChat,
   // ticker data props
   tickerDiscussions,
-  rideCount,
-  pgCount,
-  eventCount,
   onNavigate,
   // discussion section props
   trending,
@@ -34,15 +31,14 @@ export default function GeneralExperience({
   onJoinDiscussion,
   onCreateDiscussion,
   viewerId,
+  onScroll,
 }) {
   return (
-    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }} onScroll={onScroll}>
       <LiveNowTicker
         discussions={tickerDiscussions || []}
         onlineCount={onlineCount}
-        rideCount={rideCount || 0}
-        pgCount={pgCount || 0}
-        eventCount={eventCount || 0}
+        getMemberCount={getMemberCount}
         onNavigate={onNavigate}
         onJoinChat={onJoinChat}
       />
