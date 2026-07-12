@@ -1,0 +1,69 @@
+.heroBg {
+  position: relative;
+}
+
+.heroImageClip {
+  position: relative;
+  overflow: hidden;
+  height: 300px;
+  border-radius: 0;
+}
+
+/* Gradient mask that fades the bottom of the photo into the page background.
+   Kept shallow and back-loaded so the illustration stays fully visible and
+   only the last sliver blends into the white content below. */
+.heroImageClip::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0) 55%,
+    rgba(255, 255, 255, 0.45) 75%,
+    rgba(255, 255, 255, 0.85) 90%,
+    #ffffff 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Weather card floats up out of the hero image's bottom-right corner. A
+   soft blurred glow sits behind it (like the AI orb's halo) so it reads
+   as a floating glass object with depth, instead of a flat solid patch
+   sitting on top of the illustration. */
+.weatherCardWrap {
+  position: absolute;
+  right: var(--s1-edge);
+  bottom: -44px;
+  z-index: 4;
+}
+
+.weatherCardWrap::before {
+  content: '';
+  position: absolute;
+  inset: -14px;
+  border-radius: 30px;
+  background: radial-gradient(circle, rgba(196, 181, 253, 0.55) 0%, rgba(196, 181, 253, 0) 72%);
+  filter: blur(10px);
+  z-index: -1;
+}
+
+.greetingRow {
+  position: relative;
+  margin-top: 28px;
+}
+
+.searchOverlap {
+  position: relative;
+  z-index: 3;
+  margin-top: 24px;
+  padding: 0 0 8px;
+}
+
+@media (max-width: 359px) {
+  .heroImageClip { height: 260px; }
+}

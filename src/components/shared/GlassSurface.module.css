@@ -1,0 +1,19 @@
+.surface {
+  box-sizing: border-box;
+}
+
+.level1 {
+  background: var(--s1-surface-glass);
+  backdrop-filter: var(--s1-blur-l1);
+  -webkit-backdrop-filter: var(--s1-blur-l1);
+  border: var(--s1-border-l1);
+  box-shadow: var(--s1-shadow-l1);
+}
+
+.level2 {
+  background: var(--s1-surface-glass);
+  backdrop-filter: var(--s1-blur-l2);
+  -webkit-backdrop-filter: var(--s1-blur-l2);
+  border: var(--s1-border-l2);
+  box-shadow: var(--s1-shadow-l2);
+}

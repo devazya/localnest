@@ -1,0 +1,16 @@
+.root {
+  position: relative;
+  background: #FFFFFF;
+  padding-bottom: 8px;
+}
+
+.pulse {
+  animation: friendPulse 0.9s ease;
+  border-radius: var(--s1-radius-glass);
+}
+
+@keyframes friendPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.35); }
+  50%  { box-shadow: 0 0 0 10px rgba(139, 92, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+}

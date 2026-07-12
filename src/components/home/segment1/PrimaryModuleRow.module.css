@@ -1,0 +1,9 @@
+.row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 20px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 0 var(--s1-edge);
+  margin-top: 32px;
+}

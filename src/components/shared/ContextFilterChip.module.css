@@ -1,0 +1,25 @@
+.chip {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chipEmoji {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--s1-accent);
+  outline-offset: 2px;
+}

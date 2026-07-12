@@ -1,0 +1,71 @@
+/**
+ * segment1-tokens.css
+ * Design tokens for the Home Segment 1 rebuild (Design Spec v2.3, §5 §6 §7 §8).
+ *
+ * Prefixed --s1- deliberately: the rest of LocalNest runs on the app-wide
+ * --primary (#6D4AFF) purple system defined in variables.css. The Segment 1
+ * spec defines its own, slightly different accent (#8B5CF6) and glass/hero
+ * token set. Rather than overwrite --primary app-wide (which would silently
+ * reskin every other page) these are scoped as a parallel --s1-* system that
+ * only Home's Segment 1 components reference. Flagged in the build notes.
+ */
+
+:root {
+  /* ── Color (§7) ── */
+  --s1-bg-base: #FFFFFF;
+  --s1-hero-from: #FFFFFF;
+  --s1-hero-via: #F4EEFF;
+  --s1-hero-to: #FAFAFC;
+  --s1-accent: #8B5CF6;
+  --s1-accent-secondary: #F4EEFF;
+  --s1-surface-glass: linear-gradient(155deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.72) 45%, rgba(236, 227, 255, 0.68) 100%);
+  --s1-surface-glass-border: rgba(255, 255, 255, 0.7);
+  --s1-text-primary: #1C1B1F;
+  --s1-text-secondary: #6B6B76;
+  --s1-text-tertiary: #A5A3AE;
+  --s1-orb-black: #111113;
+  --s1-orb-gradient: radial-gradient(circle at 34% 26%, #55555f 0%, #222227 42%, #0c0c0e 100%);
+  --s1-orb-glow: 0 0 0 1px rgba(255,255,255,0.06) inset, 0 -6px 14px rgba(255,255,255,0.10) inset, 0 14px 30px rgba(139,92,246,0.28), 0 4px 10px rgba(0,0,0,0.25);
+  --s1-shadow-tint: rgba(139, 92, 246, 0.08);
+
+  /* ── Elevation (§8) — frosted/iOS-style: soft inset sheen along the top
+     edge (simulates light catching the glass) layered under a diffused
+     ambient shadow + a tighter contact shadow, instead of one flat blur. */
+  --s1-shadow-l1:
+    0 1px 0 rgba(255, 255, 255, 0.65) inset,
+    0 10px 22px rgba(139, 92, 246, 0.10),
+    0 2px 6px rgba(31, 20, 60, 0.05);
+  --s1-shadow-l2:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 16px 36px rgba(139, 92, 246, 0.13),
+    0 4px 12px rgba(31, 20, 60, 0.06);
+  --s1-shadow-l2-focus:
+    0 1px 0 rgba(255, 255, 255, 0.75) inset,
+    0 20px 48px rgba(139, 92, 246, 0.22),
+    0 6px 16px rgba(31, 20, 60, 0.12);
+  --s1-border-l1: 1px solid rgba(255, 255, 255, 0.55);
+  --s1-border-l2: 1px solid rgba(255, 255, 255, 0.6);
+  --s1-blur-l1: blur(20px) saturate(1.6);
+  --s1-blur-l2: blur(28px) saturate(1.7);
+
+  /* ── Radius (§4) ── */
+  --s1-radius-glass: 22px;
+  --s1-radius-pill: 999px;
+
+  /* ── Screen edge margin — 20px base, 24px at >=412px (§13) ── */
+  --s1-edge: 20px;
+
+  /* ── Spacing scale actually used in Segment 1 (§5) ── */
+  --s1-space-1: 4px;
+  --s1-space-2: 8px;
+  --s1-space-3: 12px;
+  --s1-space-4: 16px;
+  --s1-space-5: 20px;
+  --s1-space-6: 24px;
+  --s1-space-8: 32px;
+  --s1-space-10: 40px;
+}
+
+@media (min-width: 412px) {
+  :root { --s1-edge: 24px; }
+}

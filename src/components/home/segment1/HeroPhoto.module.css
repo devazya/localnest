@@ -1,0 +1,58 @@
+.wrap {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+}
+
+.img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+/* Default state — fully visible, no transition */
+.visible {
+  opacity: 1;
+}
+
+/* Incoming image fades in over 1.2s */
+.fadeIn {
+  opacity: 1;
+  animation: fadeIn 1.2s ease forwards;
+}
+
+/* Outgoing image fades out over 1.2s */
+.fadeOut {
+  opacity: 0;
+  animation: fadeOut 1.2s ease forwards;
+  z-index: 0;
+}
+
+/* Incoming sits above outgoing */
+.fadeIn {
+  z-index: 1;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* Respect reduced-motion — instant swap, no animation */
+@media (prefers-reduced-motion: reduce) {
+  .fadeIn, .fadeOut {
+    animation: none;
+    opacity: 1;
+  }
+}

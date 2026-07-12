@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import styles from './BottomNav.module.css';
 import UniversalCreator from '../creator/UniversalCreator';
+
+const LONG_PRESS_MS = 500;
 
 /* ── Tabs ── */
 const TABS = [
@@ -38,6 +40,7 @@ const TABS = [
   },
   {
     id:'profile', label:'Profile',
+    isProfile:true,
     Icon: ({ active }) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -50,6 +53,8 @@ const TABS = [
 export default function BottomNav({ currentPage, onNavigate, onAuthOpen, onPostOpen }) {
   const [creatorOpen, setCreatorOpen] = useState(false);
   const { user } = useAuth();
+  const pressTimer = useRef(null);
+  const longPressFired = useRef(false);
 
   const isActive = (tab) => {
     if (tab.id === 'home')      return currentPage === 'home';
@@ -65,9 +70,30 @@ export default function BottomNav({ currentPage, onNavigate, onAuthOpen, onPostO
       setCreatorOpen(true);
       return;
     }
-    if (tab.id === 'profile' && !user) { onAuthOpen(); return; }
+    if (tab.id === 'profile') {
+      if (longPressFired.current) { longPressFired.current = false; return; }
+      if (!user) { onAuthOpen(); return; }
+      onNavigate('profile');
+      return;
+    }
     onNavigate(tab.id);
   };
+
+  // Long-press on Profile → Friend (moved here from the old header avatar;
+  // dispatched as a window event since FriendSection only exists on Home).
+  const startProfilePress = () => {
+    longPressFired.current = false;
+    pressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      window.dispatchEvent(new CustomEvent('ln:friend-longpress'));
+    }, LONG_PRESS_MS);
+  };
+  const endProfilePress = () => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+  };
+
+  const avatarUrl = user?.user_metadata?.avatar_url
+    || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.email || 'Neighbour')}&background=8B5CF6&color=fff`;
 
   // Called when the user picks an option inside UniversalCreator
   const handleCreatorSelect = (typeId) => {
@@ -101,17 +127,27 @@ export default function BottomNav({ currentPage, onNavigate, onAuthOpen, onPostO
             }
 
             const active = isActive(tab);
+            const isProfile = tab.isProfile && !!user;
             return (
               <motion.button
                 key={tab.id}
                 className={`${styles.tab} ${active ? styles.tabActive : ''}`}
                 onClick={() => handleTab(tab)}
-                aria-label={tab.label}
+                onPointerDown={tab.isProfile ? startProfilePress : undefined}
+                onPointerUp={tab.isProfile ? endProfilePress : undefined}
+                onPointerLeave={tab.isProfile ? endProfilePress : undefined}
+                aria-label={tab.isProfile ? 'Profile — long-press to talk to Friend' : tab.label}
                 aria-current={active ? 'page' : undefined}
                 whileTap={{ scale: 0.88 }}
               >
                 <div className={styles.iconBox}>
-                  <tab.Icon active={active} />
+                  {isProfile ? (
+                    <span className={`${styles.avatar} ${active ? styles.avatarActive : ''}`}>
+                      <img src={avatarUrl} alt="" className={styles.avatarImg} />
+                    </span>
+                  ) : (
+                    <tab.Icon active={active} />
+                  )}
                   {active && (
                     <motion.span
                       className={styles.activePill}

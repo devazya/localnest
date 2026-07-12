@@ -1,0 +1,33 @@
+.wrap {
+  position: relative;
+  z-index: 2;
+  padding: 0 var(--s1-edge);
+  padding-right: 132px; /* keep clear of the overlapping weather card (§4) */
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 29px;
+  font-weight: 700;
+  line-height: 34px;
+  letter-spacing: -0.5px;
+  color: var(--s1-text-primary);
+  margin: 0;
+}
+
+.name {
+  color: var(--s1-accent, #6D4AFF);
+}
+
+.subtitle {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 22px;
+  color: var(--s1-text-secondary);
+  margin: 8px 0 0;
+}
+
+@media (max-width: 359px) {
+  .title { font-size: 24px; line-height: 30px; }
+  .wrap { padding-right: 118px; }
+}

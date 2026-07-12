@@ -3,6 +3,7 @@
 @import './variables.css';
 @import './typography.css';
 @import './animations.css';
+@import './segment1-tokens.css';
 
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

@@ -2,19 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LocalityNetwork from '../components/hero/LocalityNetwork';
 import { supabase } from '../services/supabase/client';
-import { useAuth } from '../context/AuthContext';
+import Segment1Home from '../components/home/segment1/Segment1Home';
 
-/* ─────────────────────────────────────
-   SLIDESHOW IMAGES (Bangalore)
-───────────────────────────────────── */
-const SLIDESHOW_IMAGES = [
-  'https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=800&q=85',
-  'https://images.unsplash.com/photo-1600100397608-5e5aca5c7d22?w=800&q=85',
-  'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&q=85',
-  'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=800&q=85',
-  'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=800&q=85',
-  'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=800&q=85',
-];
+/* Hero photo slideshow removed — replaced with an atmospheric gradient.
+   SLIDESHOW_IMAGES / useSlideshow intentionally removed; the future
+   animated neighbourhood hero will replace this space. */
 
 /* ─────────────────────────────────────
    LIVE ACTIVITIES (floating card cycle) — static UI, intentional
@@ -152,127 +144,6 @@ const EVENT_ICON = {
    COMPONENTS
 ═══════════════════════════════════════════════ */
 
-/* ── Slideshow Hook ── */
-function useSlideshow(images, interval = 3000, fadeDuration = 800) {
-  const [current, setCurrent] = useState(0);
-  const [next, setNext]       = useState(null);
-  const [fading, setFading]   = useState(false);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const nextIdx = (current + 1) % images.length;
-      setNext(nextIdx);
-      setFading(true);
-      setTimeout(() => {
-        setCurrent(nextIdx);
-        setNext(null);
-        setFading(false);
-      }, fadeDuration);
-    }, interval);
-    return () => clearInterval(timer);
-  }, [current, images.length, interval, fadeDuration]);
-
-  return { current, next, fading };
-}
-
-/* ── Top header (overlaid on slideshow) ── */
-function HomeHeader({ onNavigate, children }) {
-  const { user } = useAuth();
-  const h = new Date().getHours();
-  const greeting = h < 12 ? 'Good Morning' : h < 17 ? 'Good Afternoon' : 'Good Evening';
-  const emoji    = h < 12 ? '👋' : h < 17 ? '☀️' : '🌙';
-  const { current, next, fading } = useSlideshow(SLIDESHOW_IMAGES);
-
-  return (
-    <div style={{ position:'relative', overflow:'hidden', paddingBottom:0 }}>
-      <div style={{ position:'absolute', inset:0, zIndex:0 }}>
-        <img
-          key={`slide-cur-${current}`}
-          src={SLIDESHOW_IMAGES[current]}
-          alt=""
-          style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', filter:'blur(6px)', transform:'scale(1.04)', opacity: fading ? 0 : 1, transition:`opacity 800ms ease` }}
-        />
-        {next !== null && (
-          <img
-            key={`slide-next-${next}`}
-            src={SLIDESHOW_IMAGES[next]}
-            alt=""
-            style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', filter:'blur(6px)', transform:'scale(1.04)', opacity: fading ? 1 : 0, transition:`opacity 800ms ease` }}
-          />
-        )}
-        <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.22)' }} />
-        <div style={{ position:'absolute', inset:0, background:'rgba(20,6,60,0.10)' }} />
-      </div>
-
-      <div style={{ position:'relative', zIndex:1 }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 20px 0' }}>
-          <button style={{ display:'flex', alignItems:'center', gap:8, background:'none', border:'none', cursor:'pointer', padding:0 }}>
-            <div style={{ width:34, height:34, borderRadius:11, background:'rgba(255,255,255,0.18)', backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, border:'1px solid rgba(255,255,255,0.2)' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-              </svg>
-            </div>
-            <div>
-              <div style={{ fontSize:13.5, fontWeight:700, color:'#fff', lineHeight:1.2, display:'flex', alignItems:'center', gap:4 }}>
-                Green Sector
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2.5"><path d="m6 9 6 6 6-6"/></svg>
-              </div>
-              <div style={{ fontSize:11, color:'rgba(255,255,255,0.7)', marginTop:1 }}>Bangalore</div>
-            </div>
-          </button>
-
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <button style={{ position:'relative', width:40, height:40, borderRadius:12, background:'rgba(255,255,255,0.18)', backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)', border:'1px solid rgba(255,255,255,0.22)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-              </svg>
-              <span style={{ position:'absolute', top:5, right:5, width:16, height:16, background:'#EF4444', borderRadius:'50%', border:'2px solid transparent', display:'flex', alignItems:'center', justifyContent:'center', fontSize:7.5, fontWeight:800, color:'#fff' }}>3</span>
-            </button>
-            {user ? (
-              <img
-                src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.email)}&background=6D4AFF&color=fff`}
-                alt="avatar"
-                onClick={() => onNavigate('profile')}
-                style={{ width:40, height:40, borderRadius:13, objectFit:'cover', cursor:'pointer', border:'2px solid rgba(255,255,255,0.5)' }}
-              />
-            ) : (
-              <button onClick={() => onNavigate('profile')} style={{ width:40, height:40, borderRadius:13, background:'rgba(255,255,255,0.18)', backdropFilter:'blur(10px)', border:'2px solid rgba(255,255,255,0.25)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, padding:'20px 20px 0' }}>
-          <div style={{ flex:1 }}>
-            <div style={{ fontSize:24, fontWeight:800, color:'#fff', fontFamily:'var(--font-display)', letterSpacing:-0.5, lineHeight:1.18 }}>
-              {greeting}! {emoji}
-            </div>
-            <div style={{ fontSize:12.5, color:'rgba(255,255,255,0.82)', marginTop:6, lineHeight:1.55, fontFamily:'var(--font-sans)' }}>
-              Discover, connect &amp; belong to your locality.
-            </div>
-          </div>
-          <div style={{ flexShrink:0 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.12)', backdropFilter:'blur(18px)', WebkitBackdropFilter:'blur(18px)', border:'1px solid rgba(255,255,255,0.20)', borderRadius:99, padding:'5px 10px', boxShadow:'0 4px 16px rgba(0,0,0,0.10)' }}>
-              <span style={{ fontSize:13 }}>☀️</span>
-              <span style={{ fontSize:11, fontWeight:700, color:'#fff', fontFamily:'var(--font-sans)' }}>29°C</span>
-              <span style={{ fontSize:10, color:'rgba(255,255,255,0.70)', fontFamily:'var(--font-sans)' }}>Sunny</span>
-              <div style={{ width:1, height:10, background:'rgba(255,255,255,0.28)' }} />
-              <span style={{ fontSize:12 }}>🍃</span>
-              <span style={{ fontSize:10, fontWeight:700, color:'#6EE7B7', fontFamily:'var(--font-sans)' }}>AQI 58</span>
-              <span style={{ fontSize:9.5, color:'rgba(255,255,255,0.70)', fontFamily:'var(--font-sans)' }}>Good</span>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ padding:'16px 16px 0', marginBottom:0, paddingBottom:0 }}>
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ── Ride Hub Bottom Sheet ── */
 const RIDE_PRICES = {
   uber:   [
@@ -400,24 +271,24 @@ function RideSheet({ onClose }) {
   );
 }
 
-/* ── Locality Network Card ── */
+/* ── Locality Network Card (solid card — sits on the white content sheet) ── */
 function NetworkCard({ onNavigate, liveActivity, onlineCount }) {
   return (
-    <div style={{ background:'rgba(255,255,255,0.12)', backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)', border:'1px solid rgba(255,255,255,0.14)', borderRadius:26, overflow:'hidden', boxShadow:'0 18px 45px rgba(70,40,180,0.10), 0 2px 8px rgba(0,0,0,0.06)' }}>
-      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'16px 20px 10px' }}>
+    <div style={{ background:'#ffffff', border:'1px solid rgba(109,74,255,0.06)', borderRadius:20, overflow:'hidden', boxShadow:'0 24px 48px -20px rgba(109,74,255,0.16), 0 2px 8px rgba(24,14,64,0.03)' }}>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'18px 20px 10px' }}>
         <div>
-          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
-            <span style={{ width:7, height:7, background:'#10B981', borderRadius:'50%', display:'inline-block', boxShadow:'0 0 5px rgba(16,185,129,0.65)' }} />
-            <span style={{ fontSize:10, fontWeight:800, color:'rgba(255,255,255,0.75)', letterSpacing:1.3, textTransform:'uppercase' }}>LOCAL PULSE</span>
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
+            <span style={{ width:6, height:6, background:'#3E8368', borderRadius:'50%', display:'inline-block' }} />
+            <span style={{ fontSize:9.5, fontWeight:700, color:'#ABA6BF', letterSpacing:1.2, textTransform:'uppercase' }}>Local Pulse</span>
           </div>
-          <div style={{ fontSize:13, color:'rgba(255,255,255,0.85)', fontWeight:500 }}>Live community activity</div>
+          <div style={{ fontSize:13, color:'#241B3D', fontWeight:500 }}>Live community activity</div>
         </div>
-        <div style={{ background:'rgba(255,255,255,0.22)', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:99, padding:'5px 14px', display:'flex', alignItems:'center', gap:5, boxShadow:'0 2px 8px rgba(0,0,0,0.10)' }}>
-          <span style={{ width:6, height:6, background:'#10B981', borderRadius:'50%', display:'inline-block' }} />
-          <span style={{ fontSize:12, fontWeight:700, color:'#fff' }}>{onlineCount || 0} online</span>
+        <div style={{ background:'#F5F3FA', borderRadius:99, padding:'5px 12px', display:'flex', alignItems:'center', gap:5 }}>
+          <span style={{ width:5, height:5, background:'#3E8368', borderRadius:'50%', display:'inline-block' }} />
+          <span style={{ fontSize:11, fontWeight:600, color:'#5B5568' }}>{onlineCount || 0} online</span>
         </div>
       </div>
-      <div style={{ height:210, position:'relative' }}>
+      <div style={{ height:200, position:'relative' }}>
         <LocalityNetwork onNavigate={onNavigate} highlightNode={liveActivity?.nodeId} />
       </div>
     </div>
@@ -665,14 +536,20 @@ export default function Home({ onNavigate }) {
   return (
     <div style={{ background:'#ffffff', minHeight:'100vh', paddingBottom:'calc(var(--bottom-nav-h) + var(--safe-bottom) + 16px)' }}>
 
-      <HomeHeader onNavigate={onNavigate}>
+      {/* ── Home Segment 1 (Design Spec v2.3) ──
+          Hero (header/greeting/weather/search) → Friend → Primary Module Row
+          → Context Filters → Dynamic Content Feed. Everything below this is
+          out of Segment 1's scope and untouched by this rebuild. */}
+      <Segment1Home onNavigate={onNavigate} nearbyPostCount={communityPosts.length} />
+
+      <motion.div {...fu(0.02)} style={{ padding:'24px 20px 0', background:'#ffffff' }}>
         <NetworkCard onNavigate={onNavigate} liveActivity={liveActivity} onlineCount={onlineCount} />
-      </HomeHeader>
+      </motion.div>
 
       <div style={{ background:'#ffffff' }}>
 
         {/* ── Ride Hub ── */}
-        <motion.div {...fu(0.04)} style={{ paddingTop:20, background:'#ffffff' }}>
+        <motion.div {...fu(0.04)} style={{ paddingTop:4, background:'#ffffff' }}>
           <RideHub onOpen={() => setRideSheetOpen(true)} />
         </motion.div>
 

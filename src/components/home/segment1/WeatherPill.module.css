@@ -1,0 +1,56 @@
+.card {
+  width: 110px;
+  border-radius: 16px;
+  padding: 9px 11px 10px;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.sunIcon {
+  font-size: 17px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(255, 176, 32, 0.35));
+}
+
+.temp {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--s1-text-primary, #1C1B1F);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.3px;
+}
+
+.condition {
+  margin-top: 1px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--s1-text-secondary, #6B6B76);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.chevron {
+  font-size: 9px;
+}
+
+.aqi {
+  margin-top: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+@media (max-width: 359px) {
+  .card { width: 100px; padding: 8px 10px 9px; }
+  .temp { font-size: 18px; }
+}
