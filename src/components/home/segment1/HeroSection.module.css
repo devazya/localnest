@@ -7,6 +7,12 @@
   overflow: hidden;
   height: 300px;
   border-radius: 0;
+  /* Fixes a browser rendering bug: mix-blend-mode: screen on
+     CelestialArcOverlay's SVG (sun/moon glow) can rasterize a thin dark
+     fringe line right at this container's clipped edge. Giving this
+     element its own stacking context contains the blend to the hero
+     photo only, instead of bleeding a seam onto the boundary. */
+  isolation: isolate;
 }
 
 /* Gradient mask that fades the bottom of the photo into the page background.
@@ -35,6 +41,21 @@
    soft blurred glow sits behind it (like the AI orb's halo) so it reads
    as a floating glass object with depth, instead of a flat solid patch
    sitting on top of the illustration. */
+/* Guaranteed fix for a thin rendering seam at the hero photo's clipped
+   bottom edge (see HeroSection.jsx). Sits above the gradient mask and the
+   celestial SVG (z-index 3 > 2), painted the exact page background colour
+   so the boundary reads as a clean cut no matter what causes the seam. */
+.seamMask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: #ffffff;
+  z-index: 3;
+  pointer-events: none;
+}
+
 .weatherCardWrap {
   position: absolute;
   right: var(--s1-edge);
@@ -54,13 +75,13 @@
 
 .greetingRow {
   position: relative;
-  margin-top: 28px;
+  margin-top: 16px;
 }
 
 .searchOverlap {
   position: relative;
   z-index: 3;
-  margin-top: 24px;
+  margin-top: 16px;
   padding: 0 0 8px;
 }
 

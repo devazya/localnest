@@ -19,11 +19,12 @@
   gap: 8px;
   padding: 6px 8px 8px;
   border-radius: 20px;
-  transition: background 180ms ease;
+  transition: background 180ms ease, box-shadow 180ms ease;
 }
 
 .pill[data-selected] {
   background: var(--s1-accent-secondary);
+  box-shadow: 0 4px 12px rgba(109, 74, 255, 0.16);
 }
 
 .circle {

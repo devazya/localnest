@@ -4,7 +4,17 @@
   width: 100%;
   height: 100%;
   display: block;
-  /* Let the sun/moon glow optically blend into the sky photo behind it
-     instead of sitting on top as a flat translucent shape. */
+  /* No blend-mode on the SVG itself. mix-blend-mode:screen on the whole
+     tree made near-black fills (the moon's dark terminator circle that
+     carves its crescent) contribute nothing to the blend — the "cut"
+     became invisible and the moon rendered as a blurry full disc instead
+     of a sharp crescent. It also produced a thin dark compositing seam
+     at this container's clipped bottom edge. Glow layers that still want
+     the additive "screen" look apply it themselves, scoped to just those
+     elements — see .glow in CelestialArcOverlay.jsx.
+  */
+}
+
+.glow {
   mix-blend-mode: screen;
 }

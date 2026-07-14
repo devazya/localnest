@@ -19,10 +19,10 @@ import { motion, useReducedMotion } from 'framer-motion';
 import FloatingHeader from './FloatingHeader';
 import Greeting from './Greeting';
 import WeatherPill from './WeatherPill';
-import SearchBar from './SearchBar';
 import HeroPhoto from './HeroPhoto';
 import CelestialArcOverlay from './CelestialArcOverlay';
 import { fadeRise } from '../../../animations/segment1Entrance';
+import { useWeather } from '../../../hooks/useWeather';
 import styles from './HeroSection.module.css';
 
 export default function HeroSection({
@@ -31,6 +31,7 @@ export default function HeroSection({
   onBookmarkClick,
 }) {
   const reduced = useReducedMotion();
+  const weather = useWeather(); // live temp/condition/AQI — no hardcoded defaults
 
   return (
     <>
@@ -48,10 +49,23 @@ export default function HeroSection({
               onBookmarkClick={onBookmarkClick}
             />
           </motion.div>
+
+          {/* Masks a thin rendering seam that can appear at this container's
+              clipped bottom edge (a known browser compositing artifact where
+              overflow:hidden meets a blended/animated child) — paints over
+              it with the exact page background colour so it's invisible
+              regardless of the underlying cause. */}
+          <div className={styles.seamMask} aria-hidden="true" />
         </div>
 
         <motion.div {...fadeRise(1, reduced)} className={styles.weatherCardWrap}>
-          <WeatherPill />
+          <WeatherPill
+            loading={weather.status === 'loading'}
+            tempC={weather.tempC}
+            condition={weather.condition}
+            aqi={weather.aqi}
+            aqiLabel={weather.aqiLabel}
+          />
         </motion.div>
       </div>
 
@@ -59,9 +73,8 @@ export default function HeroSection({
         <Greeting name={name} />
       </motion.div>
 
-      <motion.div {...fadeRise(2, reduced)} className={styles.searchOverlap}>
-        <SearchBar onActivate={onSearchActivate} onMicClick={onMicClick} />
-      </motion.div>
+      {/* Search bar removed from Home per product decision — SearchBar.jsx
+          itself is untouched, this is just not rendering it here. */}
     </>
   );
 }

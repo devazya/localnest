@@ -16,21 +16,23 @@ export default function ContextFilterRow({ module, activeFilter, onSelect }) {
   const { getTabProps } = useRovingTabs(ids, activeFilter, onSelect);
 
   return (
-    <div
-      id="s1-filters-panel"
-      role="tablist"
-      aria-label={`${module.label} filters`}
-      className={`${styles.row} hscr`}
-    >
-      {module.contextFilters.map((f) => (
-        <ContextFilterChip
-          key={f.id}
-          filter={f}
-          selected={f.id === activeFilter}
-          onSelect={onSelect}
-          {...getTabProps(f.id)}
-        />
-      ))}
+    <div className={styles.tray}>
+      <div
+        id="s1-filters-panel"
+        role="tablist"
+        aria-label={`${module.label} filters`}
+        className={`${styles.row} hscr`}
+      >
+        {module.contextFilters.map((f) => (
+          <ContextFilterChip
+            key={f.id}
+            filter={f}
+            selected={f.id === activeFilter}
+            onSelect={onSelect}
+            {...getTabProps(f.id)}
+          />
+        ))}
+      </div>
     </div>
   );
 }

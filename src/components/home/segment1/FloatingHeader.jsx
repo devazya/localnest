@@ -46,15 +46,16 @@ function LocationPill({ locality, city, nearbyPostCount }) {
       className={styles.locationPill}
       aria-label={`Current neighborhood: ${locality}, Anekal ${city}`}
     >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <svg className={styles.pinIcon} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
       </svg>
-      <span className={styles.locationPrimary}>
-        {locality} <span className={styles.dot}>•</span> {secondary}
-        <svg className={styles.chevron} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
+      <span className={styles.locationTextCol}>
+        <span className={styles.locationPrimary}>{locality}</span>
+        <span className={styles.locationSecondary}>{secondary}</span>
       </span>
+      <svg className={styles.chevron} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="m6 9 6 6 6-6" />
+      </svg>
     </button>
   );
 }

@@ -4,6 +4,12 @@
   padding: 9px 11px 10px;
   box-sizing: border-box;
   pointer-events: none;
+  /* Scoped override of GlassSurface's shared level2 background — the
+     weather/AQI card specifically reads as too opaque/solid over the hero
+     photo, so it gets its own lighter, more see-through glass here rather
+     than editing the shared token used by Search/Friend/Content cards. */
+  background: rgba(255, 255, 255, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.45) !important;
 }
 
 .topRow {
@@ -53,4 +59,16 @@
 @media (max-width: 359px) {
   .card { width: 100px; padding: 8px 10px 9px; }
   .temp { font-size: 18px; }
+}
+
+.skeletonLine {
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(120, 110, 160, 0.22);
+  animation: skeletonPulse 1.3s ease-in-out infinite;
+}
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
 }

@@ -19,6 +19,7 @@ export default function PrimaryModuleRow({ modules, activeModule, onSelect }) {
 
   return (
     <div
+      id="s1-modules-panel"
       role="tablist"
       aria-label="Home sections"
       className={`${styles.row} hscr`}

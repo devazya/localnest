@@ -3,7 +3,14 @@
   flex-wrap: nowrap;
   gap: 20px;
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
+  overflow-y: hidden;
+  /* `proximity` (not `mandatory`) + contained overscroll stops the row from
+     visibly re-snapping/shifting sideways while the page itself is being
+     scrolled vertically — a known nested-scroll-snap quirk on mobile
+     browsers when the axis is forced to `mandatory`. */
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
   padding: 0 var(--s1-edge);
   margin-top: 32px;
 }

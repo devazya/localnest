@@ -4,6 +4,10 @@
   padding-bottom: 8px;
 }
 
+.selectionStage {
+  position: relative;
+}
+
 .pulse {
   animation: friendPulse 0.9s ease;
   border-radius: var(--s1-radius-glass);

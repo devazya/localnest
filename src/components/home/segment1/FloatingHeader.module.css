@@ -9,14 +9,16 @@
 }
 
 /* Blinkit/Zepto-style location control: plain text on the hero image,
-   no pill background, no border, no glass surface — just icon + text
-   with a text-shadow for legibility over the photo underneath. */
+   no pill background, no border, no glass surface — just icon + a compact
+   two-line text stack, with a text-shadow for legibility over the photo
+   underneath. Premium breathing room comes from padding on the control
+   itself, not from a capsule surface. */
 .locationPill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  max-width: 240px;
-  padding: 0;
+  gap: 8px;
+  max-width: 220px;
+  padding: 4px 2px;
   border: none;
   background: none;
   cursor: default;
@@ -24,27 +26,43 @@
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
+.pinIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.locationTextCol {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
 .locationPrimary {
   font-size: 13.5px;
   font-weight: 600;
+  line-height: 16px;
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: flex;
-  align-items: center;
-  gap: 5px;
 }
 
-.dot {
-  opacity: 0.7;
-  font-weight: 700;
+.locationSecondary {
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 13px;
+  color: rgba(255, 255, 255, 0.78);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chevron {
   margin-left: 1px;
-  opacity: 0.85;
   flex-shrink: 0;
+  opacity: 0.85;
+  align-self: center;
 }
 
 .actions {

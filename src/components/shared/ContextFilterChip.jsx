@@ -24,7 +24,11 @@ export default function ContextFilterChip({ filter, selected, onSelect, tabIndex
       className={styles.chip}
       animate={{ backgroundColor: selected ? 'var(--s1-accent-secondary)' : 'rgba(255,255,255,0)' }}
       transition={{ duration: 0.15, ease: 'easeOut' }}
-      style={{ color: selected ? 'var(--s1-accent)' : 'var(--s1-text-secondary)' }}
+      style={{
+        color: selected ? 'var(--s1-accent)' : 'var(--s1-text-secondary)',
+        fontWeight: selected ? 600 : 500,
+        boxShadow: selected ? '0 3px 10px rgba(109, 74, 255, 0.14)' : 'none',
+      }}
     >
       {filter.emoji && <span className={styles.chipEmoji} aria-hidden="true">{filter.emoji}</span>}
       {filter.label}

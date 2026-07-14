@@ -1,0 +1,28 @@
+.button {
+  display: block;
+  width: 100%;
+  padding: 16px 20px;
+  border: none;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #6D4AFF 0%, var(--s1-accent) 100%);
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  box-shadow: 0 4px 0 rgba(80, 40, 180, 0.30), 0 10px 26px rgba(139, 92, 246, 0.28);
+}
+
+.button[data-disabled='true'] {
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #6D4AFF 0%, var(--s1-accent) 100%);
+  color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 4px 0 rgba(80, 40, 180, 0.14), 0 10px 26px rgba(139, 92, 246, 0.14);
+  opacity: 0.55;
+}
+
+.button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: -4px;
+}

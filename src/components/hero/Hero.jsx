@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, useScroll, useTransform, useSpring, AnimatePresence } from 'framer-motion';
 import HeroBackground from './HeroBackground';
 import LocalityNetwork from './LocalityNetwork';
+import LivePulseContextPanel from './LivePulseContextPanel';
+import { fetchLocalPulsePills } from '../../services/localPulse';
 import { LOCAL_PULSE } from '../../data/index';
 import {
   heroContainer, heroLine, heroSubtle,
@@ -38,7 +40,16 @@ const LIVE_RIDES = [
 export default function Hero({ onNavigate }) {
   const [query, setQuery]       = useState('');
   const [rideIdx, setRideIdx]   = useState(0);
+  const [pulsePills, setPulsePills] = useState(null); // null = still loading, network uses its static fallback
+  const [activePulseNode, setActivePulseNode] = useState(null);
   const heroRef                 = useRef(null);
+
+  /* Live Local Pulse categories, sourced from feed_items (see localPulse.js) */
+  useEffect(() => {
+    let cancelled = false;
+    fetchLocalPulsePills().then(pills => { if (!cancelled) setPulsePills(pills); });
+    return () => { cancelled = true; };
+  }, []);
 
   /* Parallax */
   const { scrollYProgress } = useScroll({
@@ -207,7 +218,11 @@ export default function Hero({ onNavigate }) {
               <div className={styles.glassOverlay} aria-hidden="true" />
               {/* Network graph on top */}
               <div className={styles.networkViz}>
-                <LocalityNetwork onNavigate={onNavigate} />
+                <LocalityNetwork
+                  onNavigate={onNavigate}
+                  categories={pulsePills}
+                  onActiveChange={setActivePulseNode}
+                />
               </div>
             </div>
 
@@ -296,6 +311,10 @@ export default function Hero({ onNavigate }) {
           ))}
         </div>
       </motion.div>
+
+      {/* ── Local Pulse spotlight — sits below the whole widget, narrates
+           whatever the laser just reached inside LocalityNetwork ── */}
+      <LivePulseContextPanel node={activePulseNode} onNavigate={onNavigate} />
     </section>
   );
 }

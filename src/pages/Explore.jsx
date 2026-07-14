@@ -1,6 +1,9 @@
-import { useState, useRef, useEffect, useCallback, memo } from 'react';
+import { useState, useRef, useEffect, useCallback, memo, Suspense, lazy } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+
+const LetsPlaySection = lazy(() => import('../components/home/sections/LetsPlaySection'));
+const NeighbourhoodPicksSection = lazy(() => import('../components/home/sections/NeighbourhoodPicksSection'));
 
 /* ─────────────────────────────────────
    CATEGORY PNG ASSETS
@@ -1031,6 +1034,12 @@ export default function Explore({ onNavigate }) {
           </div>
         </div>
       </motion.section>
+
+      {/* DISCOVER NEARBY — moved here from Home (Let's Play + Neighbourhood Picks) */}
+      <Suspense fallback={null}>
+        <LetsPlaySection onNavigate={onNavigate} />
+        <NeighbourhoodPicksSection onNavigate={onNavigate} />
+      </Suspense>
 
       {/* MUST TRY */}
       <motion.section {...fu(0)} style={{ marginTop: 20, marginBottom: 8 }}>

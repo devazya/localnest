@@ -1,9 +1,23 @@
+/* Structural spacing only — the actual highlight that connects the
+   selected module down into its active filter is drawn by
+   SelectionConnector.jsx as a precisely-measured shape, not a flat tint
+   across this whole tray (which would wrongly highlight the inactive
+   chips sitting beside the active one). */
+.tray {
+  margin-top: 0;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-radius: 18px;
+  margin-left: var(--s1-edge);
+  margin-right: var(--s1-edge);
+  position: relative;
+}
+
 .row {
   display: flex;
   flex-wrap: nowrap;
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 0 var(--s1-edge);
-  margin-top: 20px;
+  padding: 0 12px;
 }

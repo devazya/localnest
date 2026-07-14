@@ -3,8 +3,13 @@
  * Supabase data layer. Mirrors the conventions in services/discussions.js —
  * Supabase is the only source of truth, nothing here is hardcoded.
  *
- * Tables/views (see supabase/migrations/):
- *   public.activities      — per-user notification feed (realtime)
+ * Tables/views:
+ *   public.notifications   — per-user notification feed (realtime).
+ *                            Renamed from `activities` — this table was
+ *                            always a notification log (mentions, replies,
+ *                            ride/event updates), not discoverable content.
+ *                            Discoverable "Activities" (things to do nearby)
+ *                            now live in `events` with event_type='activity'.
  *   public.user_settings   — quiet hours + notification preferences
  *   public.user_stats      — live view (Community Pulse + Weekly Recap)
  */
@@ -12,7 +17,7 @@ import { supabase } from './supabase/client';
 
 export const ACTIVITY_SELECT =
   'id,user_id,actor_id,type,content,created_at,is_read,' +
-  'actor:profiles!activities_actor_id_fkey(id,full_name,avatar_url,sector)';
+  'actor:profiles!notifications_actor_id_fkey(id,full_name,avatar_url,sector)';
 
 const DEFAULT_NOTIFICATION_PREFERENCES = {
   mentions: true, replies: true, updates_announcements: true, trending_discussions: false,
@@ -25,7 +30,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES = {
 /** Recent activity feed for one user, newest first. */
 export async function fetchActivities(userId, { limit = 50 } = {}) {
   const { data, error } = await supabase
-    .from('activities')
+    .from('notifications')
     .select(ACTIVITY_SELECT)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
@@ -47,7 +52,7 @@ export async function fetchActivityActor(actorId) {
 
 export async function markAllActivitiesRead(userId) {
   const { error } = await supabase
-    .from('activities')
+    .from('notifications')
     .update({ is_read: true })
     .eq('user_id', userId)
     .eq('is_read', false);
@@ -119,15 +124,15 @@ function getOrCreateActivityChannel(userId) {
 
   const listeners = new Set();
   const channel = supabase
-    .channel(`activities:${userId}`)
+    .channel(`notifications:${userId}`)
     .on(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'activities', filter: `user_id=eq.${userId}` },
+      { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
       (payload) => listeners.forEach((l) => l.onInsert?.(payload.new))
     )
     .on(
       'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'activities', filter: `user_id=eq.${userId}` },
+      { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
       (payload) => listeners.forEach((l) => l.onUpdate?.(payload.new))
     )
     .subscribe();

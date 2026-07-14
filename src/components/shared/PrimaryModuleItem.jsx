@@ -50,7 +50,11 @@ export default function PrimaryModuleItem({ module, selected, onSelect, tabIndex
       animate={selected ? { scale: 1.04 } : { scale: 1 }}
       transition={{ type: 'spring', stiffness: 500, damping: 20 }}
     >
-      <span className={styles.pill} data-selected={selected || undefined}>
+      <span
+        id={`s1-module-pill-${module.id}`}
+        className={styles.pill}
+        data-selected={selected || undefined}
+      >
         <span
           className={styles.circle}
           style={{

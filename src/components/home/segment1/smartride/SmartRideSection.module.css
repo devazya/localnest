@@ -1,0 +1,133 @@
+.wrapper {
+  padding: 0 var(--s1-edge);
+  margin-bottom: 24px;
+}
+
+.card {
+  border-radius: var(--s1-radius-glass);
+  padding: 0;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.body {
+  padding: 14px 16px 16px;
+}
+
+.header {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.3px;
+  margin: 0 0 4px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+}
+
+.subtitle {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 2px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}
+
+.helper {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+  margin: 0;
+  line-height: 1.5;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Moving-car scene banner (copied from old RideHub), now full-bleed
+   across the entire card — no outer padding/border of its own — with
+   title/subtitle/helper + the search trigger sitting on top of it,
+   laid out top (text) → bottom (search), and a strong scrim behind the
+   text so it stays clearly readable over the illustration ── */
+.motionScene {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 168px;
+  overflow: hidden;
+  margin: 0;
+  padding: 16px 16px 14px;
+  background: linear-gradient(105deg, #6D4AFF 0%, #5B3FE0 100%);
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, rgba(10, 5, 30, 0.62) 0%, rgba(10, 5, 30, 0.30) 42%, rgba(10, 5, 30, 0.05) 66%, rgba(10, 5, 30, 0) 80%);
+  pointer-events: none;
+}
+
+/* ── Command-palette trigger — lives in the white body area below the
+   banner now, not overlaid on top of it ── */
+.trigger {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border: 1.5px solid rgba(109, 74, 255, 0.14);
+  border-radius: 16px;
+  background: #F8F7FF;
+  box-shadow: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-sans);
+  transition: box-shadow 200ms ease, border-color 200ms ease;
+}
+
+.trigger:hover,
+.trigger:focus-visible {
+  border-color: rgba(109, 74, 255, 0.32);
+  box-shadow: 0 6px 18px rgba(109, 74, 255, 0.12);
+  outline: none;
+}
+
+.triggerIcon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.triggerText {
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--s1-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.triggerPin {
+  color: var(--s1-text-tertiary);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.chipRow {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger { transition: none; }
+}

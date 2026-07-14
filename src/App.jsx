@@ -25,7 +25,9 @@ const PgListings    = lazy(() => import('./pages/PgListings'));
 const PgDetails     = lazy(() => import('./pages/PgDetails'));
 const Shops         = lazy(() => import('./pages/Shops'));
 const Gyms          = lazy(() => import('./pages/Gyms'));
+const SavedLibrary  = lazy(() => import('./pages/SavedLibrary'));
 const UniversalPost = lazy(() => import('./components/UniversalPost'));
+const RideComparisonScreen = lazy(() => import('./pages/RideComparisonScreen'));
 
 /* ── Onboarding flow ── */
 const ONBOARDING_KEY = 'ln_onboarding_done';
@@ -44,6 +46,8 @@ const PAGES = {
   buysell:   (nav, user, params)  => <BuySell    onNavigate={nav} />,
   roommates: (nav, user, params)  => <Roommates  onNavigate={nav} />,
   profile:   (nav, user, params)  => <Profile    onNavigate={nav} userId={params?.userId} />,
+  saved:     (nav, user, params)  => <SavedLibrary onNavigate={nav} />,
+  'ride-comparison': (nav, user, params) => <RideComparisonScreen onNavigate={nav} destination={params?.destination} latitude={params?.latitude} longitude={params?.longitude} />,
 };
 
 /* ── UniversalCreator typeId → routing logic ──────────────────────────────────

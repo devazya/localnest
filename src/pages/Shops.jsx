@@ -9,6 +9,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../services/supabase/client';
+import { useAuth } from '../context/AuthContext';
+import { useSavedState } from '../hooks/useSavedState';
+import SaveButton from '../components/shared/SaveButton';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -74,7 +77,7 @@ function ShopSkeleton({ grid }) {
 }
 
 // ─── Shop Card (Grid) ─────────────────────────────────────────────────────────
-function ShopCard({ shop, onSelect, isSaved, onToggleSave }) {
+function ShopCard({ shop, onSelect, isSaved, userId }) {
   const cat = CAT_MAP[shop.category] || CAT_MAP.other;
 
   return (
@@ -94,11 +97,15 @@ function ShopCard({ shop, onSelect, isSaved, onToggleSave }) {
           {shop.is_featured && <span style={{ background: '#F59E0B', color: '#fff', fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999 }}>★ Featured</span>}
           {shop.is_verified && <span style={{ background: '#059669', color: '#fff', fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999 }}>✓ Verified</span>}
         </div>
-        {/* Save button */}
-        <button
-          onClick={e => { e.stopPropagation(); onToggleSave(shop.id); }}
-          style={{ position: 'absolute', top: 10, right: 10, width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.92)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, backdropFilter: 'blur(4px)' }}
-        >{isSaved ? '🔖' : '🤍'}</button>
+        {/* Save button — universal saved_items system, item_type='business' */}
+        <SaveButton
+          userId={userId}
+          itemType="business"
+          itemId={shop.id}
+          saved={isSaved}
+          size="sm"
+          style={{ position: 'absolute', top: 10, right: 10 }}
+        />
       </div>
 
       <div style={{ padding: '14px 16px 16px' }}>
@@ -148,7 +155,7 @@ function ShopCard({ shop, onSelect, isSaved, onToggleSave }) {
 }
 
 // ─── Shop Row (List view) ─────────────────────────────────────────────────────
-function ShopRow({ shop, onSelect, isSaved, onToggleSave }) {
+function ShopRow({ shop, onSelect, isSaved, userId }) {
   const cat = CAT_MAP[shop.category] || CAT_MAP.other;
 
   return (
@@ -176,7 +183,7 @@ function ShopRow({ shop, onSelect, isSaved, onToggleSave }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-        <button onClick={e => { e.stopPropagation(); onToggleSave(shop.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }}>{isSaved ? '🔖' : '🤍'}</button>
+        <SaveButton userId={userId} itemType="business" itemId={shop.id} saved={isSaved} size="sm" style={{ background: 'none', boxShadow: 'none' }} />
         {shop.phone && (
           <a href={`tel:${shop.phone}`} onClick={e => e.stopPropagation()} style={{ background: 'rgba(109,74,255,0.08)', color: '#6D4AFF', border: 'none', borderRadius: 8, padding: '5px 10px', fontSize: 12, fontWeight: 600, textAlign: 'center', textDecoration: 'none' }}>Call</a>
         )}
@@ -289,7 +296,7 @@ function InfoRow({ icon, label, value, href }) {
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function Shops({ onNavigate }) {
-  const [user, setUser] = useState(null);
+  const { user } = useAuth();
 
   const [shops, setShops]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -305,15 +312,13 @@ export default function Shops({ onNavigate }) {
   const [gridView, setGridView]       = useState(true);
 
   const [selected, setSelected] = useState(null);
-  const [saved, setSaved]       = useState({});
 
   const loaderRef = useRef(null);
   const searchTimer = useRef(null);
 
-  // Auth
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data?.user || null));
-  }, []);
+  // Saved state — always from Supabase (saved_items), hydrated in one batched
+  // query for every business currently on screen. No local-only save state.
+  const { isSaved } = useSavedState(user?.id, 'business', shops.map(s => s.id));
 
   // Debounced search
   const handleSearchChange = (v) => {
@@ -361,8 +366,6 @@ export default function Shops({ onNavigate }) {
     if (loaderRef.current) obs.observe(loaderRef.current);
     return () => obs.disconnect();
   }, [hasMore, loading, fetchShops]);
-
-  const toggleSave = (id) => setSaved(p => ({ ...p, [id]: !p[id] }));
 
   const featuredShops = shops.filter(s => s.is_featured).slice(0, 3);
   const allShops = shops;
@@ -449,7 +452,7 @@ export default function Shops({ onNavigate }) {
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#F59E0B', marginBottom: 14 }}>★ Featured Businesses</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
               {featuredShops.map(shop => (
-                <ShopCard key={shop.id} shop={shop} onSelect={setSelected} isSaved={!!saved[shop.id]} onToggleSave={toggleSave} />
+                <ShopCard key={shop.id} shop={shop} onSelect={setSelected} isSaved={isSaved(shop.id)} userId={user?.id} />
               ))}
             </div>
             <div style={{ height: 1, background: 'linear-gradient(to right, transparent, rgba(109,74,255,0.1), transparent)', margin: '28px 0' }} />
@@ -476,8 +479,8 @@ export default function Shops({ onNavigate }) {
             : { display: 'flex', flexDirection: 'column', gap: 12 }
           }>
             {allShops.map(shop => gridView
-              ? <ShopCard key={shop.id} shop={shop} onSelect={setSelected} isSaved={!!saved[shop.id]} onToggleSave={toggleSave} />
-              : <ShopRow  key={shop.id} shop={shop} onSelect={setSelected} isSaved={!!saved[shop.id]} onToggleSave={toggleSave} />
+              ? <ShopCard key={shop.id} shop={shop} onSelect={setSelected} isSaved={isSaved(shop.id)} userId={user?.id} />
+              : <ShopRow  key={shop.id} shop={shop} onSelect={setSelected} isSaved={isSaved(shop.id)} userId={user?.id} />
             )}
           </div>
         )}
